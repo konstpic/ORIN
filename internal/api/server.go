@@ -89,6 +89,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/v1/applications/{name}/rollback", s.appRollback)
 		r.Get("/api/v1/applications/{name}/pods/{pod}/log", s.getApplicationPodLog)
 		r.Get("/api/v1/applications/{name}/pods/{pod}/events", s.getApplicationPodEvents)
+		r.Get("/api/v1/applications/{name}/pods/{pod}/shell", s.getApplicationPodShell)
 		r.Get("/api/v1/applications/{name}/pods/{pod}/exec", s.appPodExecWS)
 		r.Delete("/api/v1/applications/{name}/pods/{pod}", s.deleteApplicationPod)
 		r.Get("/api/v1/applications/{name}/pods/{pod}", s.getApplicationPod)
@@ -126,7 +127,7 @@ func (s *Server) Handler() http.Handler {
 			}
 			// Try to serve the file
 			path := req.URL.Path
-			
+
 			// Check if file exists
 			if info, err := http.Dir(s.opts.Config.WebAssetsDir).Open(path); err == nil {
 				stat, err := info.Stat()
@@ -137,7 +138,7 @@ func (s *Server) Handler() http.Handler {
 					return
 				}
 			}
-			
+
 			// File doesn't exist or is a directory - serve index.html for SPA routing
 			req.URL.Path = "/"
 			fs.ServeHTTP(w, req)

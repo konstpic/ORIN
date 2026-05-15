@@ -216,6 +216,10 @@ export interface PodEvent {
   count: number;
   firstTime?: string | null;
   lastTime?: string | null;
+  category?: string;
+  resourceKind?: string;
+  resourceName?: string;
+  namespace?: string;
 }
 
 export interface WSMessage<T = unknown> {

@@ -151,6 +151,32 @@ func (cm *ClusterManager) StreamPodLogs(
 	return req.Stream(ctx)
 }
 
+// DetectPodShell tries to find an available shell in the pod container.
+// Returns the first working shell from the priority list, or "/bin/sh" as fallback.
+func (cm *ClusterManager) DetectPodShell(
+	ctx context.Context,
+	namespace, podName, container string,
+) string {
+	shells := []string{
+		"/bin/bash",
+		"/bin/sh",
+		"/bin/ash",
+		"sh",
+	}
+
+	for _, shell := range shells {
+		cmd := []string{"test", "-x", shell}
+		var stdout, stderr io.Writer
+		err := cm.PodExecStream(ctx, namespace, podName, container, cmd, nil, stdout, stderr, false, 0, 0)
+		if err == nil {
+			return shell
+		}
+	}
+
+	// Fallback to /bin/sh if no shell can be detected
+	return "/bin/sh"
+}
+
 // staticTTYResize implements remotecommand.TerminalSizeQueue with a fixed size (MVP).
 type staticTTYResize struct {
 	w, h uint16

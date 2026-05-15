@@ -402,20 +402,21 @@ function TopologyFlowInner({
         style={{ width: "100%", height: "100%" }}
         nodes={nodes}
         edges={edges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
-      nodeTypes={nodeTypes}
-      onNodeClick={onNodeClick}
-      onNodeContextMenu={onNodeContextMenuCb}
-      nodesConnectable={false}
-      edgesReconnectable={false}
-      minZoom={0.25}
-      maxZoom={2}
-      zoomOnDoubleClick={false}
-      defaultEdgeOptions={{ type: "smoothstep" }}
-      proOptions={{ hideAttribution: true }}
-      elevateEdgesOnSelect
-    >
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        nodeTypes={nodeTypes}
+        onNodeClick={onNodeClick}
+        onNodeContextMenu={onNodeContextMenuCb}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        edgesReconnectable={false}
+        minZoom={0.25}
+        maxZoom={2}
+        zoomOnDoubleClick={false}
+        defaultEdgeOptions={{ type: "smoothstep" }}
+        proOptions={{ hideAttribution: true }}
+        elevateEdgesOnSelect
+      >
       <Background gap={22} size={1} color="rgba(139, 148, 158, 0.12)" />
       <Controls
         className="!bg-[var(--color-surface)] !border-[var(--color-border)] !shadow-lg [&_button]:!fill-[var(--color-text)] [&_button]:hover:!fill-[var(--color-accent)]"

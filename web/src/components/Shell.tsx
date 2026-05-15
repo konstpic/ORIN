@@ -7,7 +7,7 @@ export function Shell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full bg-[var(--color-canvas)]">
       <aside
-        className="w-56 shrink-0 flex flex-col text-[var(--color-text)] shadow-lg"
+        className="w-96 shrink-0 flex flex-col text-[var(--color-text)] shadow-lg overflow-y-auto"
         style={{ background: "var(--color-sidebar)" }}
       >
         <div className="px-4 py-5 border-b border-[var(--color-border)]">

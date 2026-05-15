@@ -37,7 +37,7 @@ if [[ "${NODES}" != "1" ]] && [[ "${ALLOW_MULTI_NODE:-}" != "1" ]] && [[ "${USE_
 fi
 
 echo "==> Building image k8s-ui:local"
-docker build -t k8s-ui:local "${ROOT}"
+docker build --no-cache -t k8s-ui:local "${ROOT}"
 
 HELM_EXTRA_SET=()
 HELM_EXTRA_FILES=(-f "${THIS_DIR}/values.yaml")

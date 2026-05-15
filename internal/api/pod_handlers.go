@@ -18,6 +18,64 @@ import (
 	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
 
+// categorizeEvent maps a Kubernetes event reason to a UI-friendly category
+func categorizeEvent(reason, resourceKind string) string {
+	switch reason {
+	// Pod lifecycle events
+	case "Created", "Scheduled", "Triggered":
+		return "PodCreated"
+	case "Pulling", "PullingImage":
+		return "PodStarting"
+	case "Pulled":
+		return "ImagePulled"
+	case "Killing", "Finished":
+		return "PodStopping"
+
+	// Container lifecycle events
+	case "ContainerStarted", "ContainerCreated":
+		return "ContainerStarted"
+	case "ContainerFinished", "ContainerStopped":
+		return "ContainerStopped"
+	case "ContainerCrashed", "BackOff":
+		return "ContainerCrash"
+
+	// Image pull events
+	case "ImagePullBackOff", "ErrImagePull", "FailedToStartContainer":
+		return "ImagePullFailed"
+	case "SuccessfullyPulledImage", "PulledImage":
+		return "ImagePullSuccess"
+
+	// Probe events
+	case "LivenessProbe", "Unhealthy":
+		return "LivenessProbe"
+	case "ReadinessProbe":
+		return "ReadinessProbe"
+	case "StartupProbe":
+		return "StartupProbe"
+
+	// Resource events
+	case "FailedScheduling", "FailedAdmission":
+		return "SchedulingFailed"
+	case "SuccessfulCreate", "SuccessfulDelete":
+		return "SuccessfulOperation"
+	case "Failed", "FailedCreate", "FailedDelete":
+		return "OperationFailed"
+
+	// Mount events
+	case "FailedMount", "FailedAttachVolume":
+		return "MountFailed"
+	case "SuccessfulMountVolume":
+		return "MountSuccess"
+
+	// Network events
+	case "FailedToCreateNetwork":
+		return "NetworkFailed"
+
+	default:
+		return "Other"
+	}
+}
+
 // getApplicationPod returns pod metadata for the UI (containers, phase).
 func (s *Server) getApplicationPod(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
@@ -82,10 +140,14 @@ func (s *Server) getApplicationPodEvents(w http.ResponseWriter, r *http.Request)
 	out := make([]apiv1.PodEvent, 0, len(evs))
 	for _, e := range evs {
 		pe := apiv1.PodEvent{
-			Type:    e.Type,
-			Reason:  e.Reason,
-			Message: e.Message,
-			Count:   e.Count,
+			Type:         e.Type,
+			Reason:       e.Reason,
+			Message:      e.Message,
+			Count:        e.Count,
+			Category:     categorizeEvent(e.Reason, e.InvolvedObject.Kind),
+			ResourceKind: e.InvolvedObject.Kind,
+			ResourceName: e.InvolvedObject.Name,
+			Namespace:    e.InvolvedObject.Namespace,
 		}
 		if !e.FirstTimestamp.IsZero() {
 			t := e.FirstTimestamp.Time
@@ -129,10 +191,14 @@ func (s *Server) getApplicationResourceEvents(w http.ResponseWriter, r *http.Req
 	out := make([]apiv1.PodEvent, 0, len(evs))
 	for _, e := range evs {
 		pe := apiv1.PodEvent{
-			Type:    e.Type,
-			Reason:  e.Reason,
-			Message: e.Message,
-			Count:   e.Count,
+			Type:         e.Type,
+			Reason:       e.Reason,
+			Message:      e.Message,
+			Count:        e.Count,
+			Category:     categorizeEvent(e.Reason, e.InvolvedObject.Kind),
+			ResourceKind: e.InvolvedObject.Kind,
+			ResourceName: e.InvolvedObject.Name,
+			Namespace:    e.InvolvedObject.Namespace,
 		}
 		if !e.FirstTimestamp.IsZero() {
 			t := e.FirstTimestamp.Time
@@ -218,6 +284,45 @@ func (fw *flushWriter) Write(p []byte) (int, error) {
 		fw.f.Flush()
 	}
 	return n, err
+}
+
+// getApplicationPodShell detects and returns the available shell in the pod.
+func (s *Server) getApplicationPodShell(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	podName := chi.URLParam(r, "pod")
+	app, ok := s.appByNameAuthorized(w, r, name)
+	if !ok {
+		return
+	}
+	pod, err := s.opts.Cluster.GetPodForApp(r.Context(), app.Name, app.DestNamespace, podName)
+	if errors.Is(err, k8s.ErrPodNotOwned) {
+		writeError(w, http.StatusForbidden, "forbidden", err.Error())
+		return
+	}
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, "not_found", "pod not found")
+			return
+		}
+		writeError(w, http.StatusBadGateway, "pod_get_failed", err.Error())
+		return
+	}
+
+	container := r.URL.Query().Get("container")
+	if container == "" && len(pod.Spec.Containers) > 0 {
+		container = pod.Spec.Containers[0].Name
+	}
+	if container == "" {
+		writeError(w, http.StatusBadRequest, "no_container", "pod has no containers")
+		return
+	}
+
+	// Detect available shell with a timeout
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+	defer cancel()
+	shell := s.opts.Cluster.DetectPodShell(ctx, pod.Namespace, pod.Name, container)
+
+	writeJSON(w, http.StatusOK, map[string]string{"shell": shell})
 }
 
 // appPodExecWS streams pod exec over WebSocket.

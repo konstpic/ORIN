@@ -155,6 +155,11 @@ export const api = {
       `/api/v1/applications/${encodeURIComponent(app)}/pods/${encodeURIComponent(pod)}/events`,
     ),
 
+  getPodShell: (app: string, pod: string, container: string) =>
+    request<{ shell: string }>(
+      `/api/v1/applications/${encodeURIComponent(app)}/pods/${encodeURIComponent(pod)}/shell?container=${encodeURIComponent(container)}`,
+    ),
+
   getResourceEvents: (app: string, kind: string, name: string, namespace?: string) => {
     const q = new URLSearchParams({ kind, name });
     if (namespace) q.set("namespace", namespace);

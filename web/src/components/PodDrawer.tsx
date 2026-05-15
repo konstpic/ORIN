@@ -12,16 +12,28 @@ import { iconForKind, kindIconTileClass } from "../k8s/kindMeta";
 
 type Tab = "logs" | "terminal" | "events";
 
-const SHELL_CHOICES = [
-  { label: "/bin/sh", value: "/bin/sh" },
-  { label: "/bin/bash", value: "/bin/bash" },
-  { label: "/bin/ash", value: "/bin/ash" },
-  { label: "sh -c 'exec bash || exec sh'", value: "sh -c exec\\ bash||exec\\ sh" },
-];
-
 function eventRowClass(ev: PodEvent): string {
   if (ev.type === "Warning") return "bg-amber-500/5 hover:bg-amber-500/10";
   return "hover:bg-[var(--color-accent-muted)]/15";
+}
+
+function getCategoryBadgeColor(category?: string): string {
+  if (!category) return "bg-gray-500/20 text-gray-300";
+  
+  if (category.includes("Crash") || category.includes("Failed") || category.includes("Error")) 
+    return "bg-red-500/20 text-red-300";
+  if (category.includes("Probe")) 
+    return "bg-orange-500/20 text-orange-300";
+  if (category.includes("ImagePull")) 
+    return "bg-blue-500/20 text-blue-300";
+  if (category.includes("Success") || category.includes("Pulled") || category.includes("Started") || category.includes("Mount"))
+    return "bg-green-500/20 text-green-300";
+  if (category.includes("Starting") || category.includes("Created"))
+    return "bg-cyan-500/20 text-cyan-300";
+  if (category.includes("Stopping"))
+    return "bg-purple-500/20 text-purple-300";
+  
+  return "bg-gray-500/20 text-gray-300";
 }
 
 function formatEventTime(t: string | null | undefined): string {
@@ -45,7 +57,8 @@ export function PodDrawer({
   const token = useAuth((s) => s.token);
   const [tab, setTab] = useState<Tab>("logs");
   const [container, setContainer] = useState("");
-  const [shell, setShell] = useState(SHELL_CHOICES[0].value);
+  const [shell, setShell] = useState("/bin/sh");
+  const [shellLoading, setShellLoading] = useState(false);
   const [tailLines, setTailLines] = useState(800);
   const [followLogs, setFollowLogs] = useState(false);
   const [logFilter, setLogFilter] = useState("");
@@ -70,6 +83,22 @@ export function PodDrawer({
       setContainer(list[0].name);
     }
   }, [summary, container]);
+
+  // Auto-detect shell when container changes
+  useEffect(() => {
+    if (!container) return;
+    setShellLoading(true);
+    void (async () => {
+      try {
+        const result = await api.getPodShell(appName, pod, container);
+        setShell(result.shell);
+      } catch {
+        setShell("/bin/sh"); // fallback
+      } finally {
+        setShellLoading(false);
+      }
+    })();
+  }, [container, appName, pod]);
 
   const {
     data: events,
@@ -291,19 +320,13 @@ export function PodDrawer({
         {tab === "terminal" && (
           <div className="min-w-[150px]">
             <label className="block text-[10px] uppercase font-semibold text-[var(--color-text-muted)] mb-1">Shell</label>
-            <div className="flex gap-1">
-              <select
-                className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1.5 text-sm text-[var(--color-text)]"
-                value={shell}
-                onChange={(e) => setShell(e.target.value)}
-              >
-                {SHELL_CHOICES.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+            <div className="flex gap-1 items-center">
+              <div className="flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1.5 text-sm text-[var(--color-text)] font-mono">
+                {shellLoading ? "Detecting..." : shell}
+              </div>
               <button
                 type="button"
-                title="Reconnect"
+                title="Reconnect terminal"
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
                 onClick={() => setTermGen((g) => g + 1)}
               >
@@ -448,7 +471,8 @@ export function PodDrawer({
                   <thead className="sticky top-0 bg-[var(--color-surface)] border-b border-[var(--color-border)] z-10">
                     <tr className="text-[var(--color-text-muted)] uppercase tracking-wide">
                       <th className="px-2 py-2 w-16">Type</th>
-                      <th className="px-2 py-2 w-32">Reason</th>
+                      <th className="px-2 py-2 w-28">Category</th>
+                      <th className="px-2 py-2 w-28">Reason</th>
                       <th className="px-2 py-2">Message</th>
                       <th className="px-2 py-2 w-40 hidden md:table-cell">Last seen</th>
                       <th className="px-2 py-2 w-10 text-right">#</th>
@@ -458,7 +482,14 @@ export function PodDrawer({
                     {filteredEvents.map((ev, i) => (
                       <tr key={`${ev.reason}-${i}`} className={`align-top ${eventRowClass(ev)}`}>
                         <td className={`px-2 py-1.5 whitespace-nowrap font-mono ${ev.type === "Warning" ? "text-amber-300" : ""}`}>{ev.type}</td>
-                        <td className="px-2 py-1.5 whitespace-nowrap">{ev.reason}</td>
+                        <td className="px-2 py-1.5 whitespace-nowrap">
+                          {ev.category && (
+                            <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${getCategoryBadgeColor(ev.category)}`}>
+                              {ev.category}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-2 py-1.5 whitespace-nowrap text-[var(--color-text-muted)]">{ev.reason}</td>
                         <td className="px-2 py-1.5 break-words">{ev.message}</td>
                         <td className="px-2 py-1.5 text-[var(--color-text-muted)] hidden md:table-cell whitespace-nowrap">
                           {formatEventTime(ev.lastTime ?? ev.firstTime)}

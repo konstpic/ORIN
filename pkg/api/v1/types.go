@@ -10,21 +10,21 @@ import (
 
 // Application is the public representation of an application.
 type Application struct {
-	Name           string          `json:"name"`
-	Project        string          `json:"project"`
-	Source         AppSource       `json:"source"`
-	Destination    AppDestination  `json:"destination"`
-	SyncPolicy     SyncPolicy      `json:"syncPolicy"`
-	Status         AppStatus       `json:"status"`
-	CreatedAt      time.Time       `json:"createdAt"`
-	UpdatedAt      time.Time       `json:"updatedAt"`
+	Name        string         `json:"name"`
+	Project     string         `json:"project"`
+	Source      AppSource      `json:"source"`
+	Destination AppDestination `json:"destination"`
+	SyncPolicy  SyncPolicy     `json:"syncPolicy"`
+	Status      AppStatus      `json:"status"`
+	CreatedAt   time.Time      `json:"createdAt"`
+	UpdatedAt   time.Time      `json:"updatedAt"`
 }
 
 // AppSource references a Git source.
 type AppSource struct {
-	RepoURL        string          `json:"repoUrl"`
-	Path           string          `json:"path"`
-	TargetRevision string          `json:"targetRevision"`
+	RepoURL        string `json:"repoUrl"`
+	Path           string `json:"path"`
+	TargetRevision string `json:"targetRevision"`
 	// HelmValues is optional JSON merged into helm template (-f) when Path points at a Helm chart.
 	HelmValues json.RawMessage `json:"helmValues,omitempty"`
 	// HelmValueFiles are paths relative to the chart directory passed as extra -f layers.
@@ -79,10 +79,10 @@ type AutomatedSync struct {
 
 // AppStatus is the live status of an Application.
 type AppStatus struct {
-	Sync             string     `json:"sync"`             // Synced / OutOfSync / Unknown
-	Health           string     `json:"health"`           // Healthy / Degraded / ...
+	Sync             string     `json:"sync"`   // Synced / OutOfSync / Unknown
+	Health           string     `json:"health"` // Healthy / Degraded / ...
 	ObservedRevision string     `json:"observedRevision"`
-	LastSyncedAt    *time.Time  `json:"lastSyncedAt,omitempty"`
+	LastSyncedAt     *time.Time `json:"lastSyncedAt,omitempty"`
 	Message          string     `json:"message"`
 	// ObservedCommit is the git commit metadata for the current observedRevision (omitted when unknown).
 	ObservedCommit *GitCommit `json:"observedCommit,omitempty"`
@@ -107,11 +107,11 @@ type CompletedSyncSummary struct {
 
 // CreateApplicationRequest is accepted by POST /api/v1/applications.
 type CreateApplicationRequest struct {
-	Name           string         `json:"name"`
-	Project        string         `json:"project,omitempty"`
-	Source         AppSource      `json:"source"`
-	Destination    AppDestination `json:"destination"`
-	SyncPolicy     SyncPolicy     `json:"syncPolicy"`
+	Name        string         `json:"name"`
+	Project     string         `json:"project,omitempty"`
+	Source      AppSource      `json:"source"`
+	Destination AppDestination `json:"destination"`
+	SyncPolicy  SyncPolicy     `json:"syncPolicy"`
 }
 
 // UpdateApplicationRequest is accepted by PUT /api/v1/applications/{name}.
@@ -131,25 +131,25 @@ type SyncRequest struct {
 
 // ResourceNode is one node in an application's resource tree.
 type ResourceNode struct {
-	Group     string         `json:"group"`
-	Version   string         `json:"version"`
-	Kind      string         `json:"kind"`
-	Namespace string         `json:"namespace,omitempty"`
-	Name      string         `json:"name"`
-	UID       string         `json:"uid"`
-	Health      string         `json:"health"`
-	Sync        string         `json:"sync"`
-	SyncMessage string         `json:"syncMessage,omitempty"`
+	Group       string `json:"group"`
+	Version     string `json:"version"`
+	Kind        string `json:"kind"`
+	Namespace   string `json:"namespace,omitempty"`
+	Name        string `json:"name"`
+	UID         string `json:"uid"`
+	Health      string `json:"health"`
+	Sync        string `json:"sync"`
+	SyncMessage string `json:"syncMessage,omitempty"`
 	// PodPhase is set for Kind=Pod (status.phase).
-	PodPhase         string         `json:"podPhase,omitempty"`
-	ParentUID        string         `json:"parentUid,omitempty"`
+	PodPhase  string `json:"podPhase,omitempty"`
+	ParentUID string `json:"parentUid,omitempty"`
 	// CreationTimestamp is the RFC3339 creation time of the live object.
-	CreationTimestamp string         `json:"creationTimestamp,omitempty"`
+	CreationTimestamp string `json:"creationTimestamp,omitempty"`
 	// ResourceVersion carries the k8s resourceVersion (incremented on each change).
-	ResourceVersion   string         `json:"resourceVersion,omitempty"`
+	ResourceVersion string `json:"resourceVersion,omitempty"`
 	// Labels are the object's labels (used for revision display, e.g. pod-template-hash).
-	Labels            map[string]string `json:"labels,omitempty"`
-	Children  []ResourceNode `json:"children,omitempty"`
+	Labels   map[string]string `json:"labels,omitempty"`
+	Children []ResourceNode    `json:"children,omitempty"`
 }
 
 // ActiveSyncInfo describes an in-flight sync operation (for UI progress).
@@ -162,8 +162,8 @@ type ActiveSyncInfo struct {
 
 // ResourceTree wraps the rooted forest.
 type ResourceTree struct {
-	Nodes      []ResourceNode   `json:"nodes"`
-	ActiveSync *ActiveSyncInfo  `json:"activeSync,omitempty"`
+	Nodes      []ResourceNode  `json:"nodes"`
+	ActiveSync *ActiveSyncInfo `json:"activeSync,omitempty"`
 }
 
 // PodSummary is returned by GET /api/v1/applications/{name}/pods/{pod}.
@@ -188,19 +188,28 @@ type PodEvent struct {
 	Count     int32      `json:"count"`
 	FirstTime *time.Time `json:"firstTime,omitempty"`
 	LastTime  *time.Time `json:"lastTime,omitempty"`
+	// Category classifies the event: PodStart, ImagePull, LivenessProbe, ReadinessProbe,
+	// StartupProbe, ContainerCrash, ContainerStart, ContainerStop, PodStop, etc.
+	Category string `json:"category,omitempty"`
+	// ResourceKind is the kind of Kubernetes resource (Pod, Deployment, ReplicaSet, StatefulSet, etc.)
+	ResourceKind string `json:"resourceKind,omitempty"`
+	// ResourceName is the name of the resource that generated this event
+	ResourceName string `json:"resourceName,omitempty"`
+	// Namespace is the namespace of the resource
+	Namespace string `json:"namespace,omitempty"`
 }
 
 // ResourceDiff is one element of a /diff response.
 type ResourceDiff struct {
-	Group           string `json:"group"`
-	Version         string `json:"version"`
-	Kind            string `json:"kind"`
-	Namespace       string `json:"namespace,omitempty"`
-	Name            string `json:"name"`
-	Sync            string `json:"sync"` // Synced / OutOfSync
-	DesiredYAML     string `json:"desiredYaml"`
-	LiveYAML        string `json:"liveYaml"`
-	NormalizedDiff  string `json:"normalizedDiff"`
+	Group          string `json:"group"`
+	Version        string `json:"version"`
+	Kind           string `json:"kind"`
+	Namespace      string `json:"namespace,omitempty"`
+	Name           string `json:"name"`
+	Sync           string `json:"sync"` // Synced / OutOfSync
+	DesiredYAML    string `json:"desiredYaml"`
+	LiveYAML       string `json:"liveYaml"`
+	NormalizedDiff string `json:"normalizedDiff"`
 }
 
 // DiffResponse aggregates per-resource diffs and a summary.
@@ -252,8 +261,8 @@ type ApplicationBatchItem struct {
 
 // ApplicationBatchCreateRequest creates multiple apps from one template.
 type ApplicationBatchCreateRequest struct {
-	Template CreateApplicationRequest   `json:"template"`
-	Items    []ApplicationBatchItem     `json:"items"`
+	Template CreateApplicationRequest `json:"template"`
+	Items    []ApplicationBatchItem   `json:"items"`
 }
 
 // CreateClusterRequest registers an out-of-cluster API target (kubeconfig YAML).
@@ -302,8 +311,8 @@ type ProjectDestination struct {
 
 // ProjectPolicies mirrors Argo CD AppProject policy fields.
 type ProjectPolicies struct {
-	SourceRepos                []string             `json:"sourceRepos,omitempty"`
-	Destinations               []ProjectDestination `json:"destinations,omitempty"`
+	SourceRepos                []string              `json:"sourceRepos,omitempty"`
+	Destinations               []ProjectDestination  `json:"destinations,omitempty"`
 	ClusterResourceWhitelist   []ProjectResourceRule `json:"clusterResourceWhitelist,omitempty"`
 	NamespaceResourceBlacklist []ProjectResourceRule `json:"namespaceResourceBlacklist,omitempty"`
 }
