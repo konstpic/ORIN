@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-ui
+  namespace: k8s-ui
+spec:
+  selector: { app: k8s-ui }
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s-ui
+  namespace: k8s-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: k8s-ui }
+  template:
+    metadata:
+      labels: { app: k8s-ui }
+    spec:
+      serviceAccountName: k8s-ui
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - >-
+              until pg_isready -h k8s-ui-postgres.k8s-ui.svc.cluster.local -p 5432 -U k8sui;
+              do sleep 1; done
+      containers:
+        - name: k8s-ui
+          image: k8s-ui:dev
+          imagePullPolicy: IfNotPresent
+          ports:
+            - { containerPort: 8080, name: http }
+          envFrom:
+            - secretRef: { name: k8s-ui }
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8080 }
+            initialDelaySeconds: 5
+          livenessProbe:
+            httpGet: { path: /healthz, port: 8080 }
+            initialDelaySeconds: 10
+          volumeMounts:
+            - { name: repo-cache, mountPath: /tmp/k8s-ui-repos }
+      volumes:
+        - name: repo-cache
+          emptyDir: {}

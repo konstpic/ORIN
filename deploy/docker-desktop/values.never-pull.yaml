@@ -1,0 +1,7 @@
+# Optional: use with USE_LOCAL_IMAGE_NEVER=1 in deploy.sh — image must exist
+# on the node (same containerd store as docker build). Most Docker Desktop
+# setups do NOT satisfy this without extra configuration.
+image:
+  repository: k8s-ui
+  tag: local
+  pullPolicy: Never

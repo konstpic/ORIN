@@ -1,0 +1,38 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-ui-postgres
+  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+spec:
+  selector: { app: k8s-ui-postgres }
+  ports: [{ port: 5432, targetPort: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k8s-ui-postgres
+  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+spec:
+  serviceName: k8s-ui-postgres
+  replicas: 1
+  selector:
+    matchLabels: { app: k8s-ui-postgres }
+  template:
+    metadata: { labels: { app: k8s-ui-postgres } }
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER,     value: k8sui }
+            - { name: POSTGRES_PASSWORD, value: k8sui }
+            - { name: POSTGRES_DB,       value: k8sui }
+          ports: [{ containerPort: 5432 }]
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: {{ .Values.postgres.storage }} } }
+{{- end }}

@@ -1,0 +1,783 @@
+openapi: 3.0.3
+info:
+  title: k8s-ui API
+  description: GitOps dashboard control-plane API.
+  version: 0.1.0
+servers:
+  - url: /
+security:
+  - bearerAuth: []
+paths:
+  /api/v1/auth/login:
+    post:
+      summary: Exchange a static admin token for an HttpOnly cookie.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+                  role:  { type: string }
+        "401":
+          $ref: "#/components/responses/Error"
+  /api/v1/auth/userinfo:
+    get:
+      summary: Return the authenticated principal.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subject: { type: string }
+                  role:    { type: string }
+                  projects:
+                    type: array
+                    items: { type: string }
+  /api/v1/applications:
+    get:
+      summary: List all applications.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Application" }
+    post:
+      summary: Create an application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateApplicationRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+  /api/v1/application-batches:
+    post:
+      summary: Create multiple applications from one template (ApplicationSet-style batch).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template, items]
+              properties:
+                template: { $ref: "#/components/schemas/CreateApplicationRequest" }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name: { type: string }
+                      destNamespace: { type: string }
+                      repoUrl: { type: string }
+                      path: { type: string }
+                      targetRevision: { type: string }
+                      cluster: { type: string }
+                      project: { type: string }
+                      helmValues: {}
+                      createNamespace: { type: boolean }
+                      materializeChildApps: { type: boolean }
+      responses:
+        "200":
+          description: Per-row results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name: { type: string }
+                        error: { type: string }
+  /api/v1/applications/{name}:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    get:
+      summary: Get an application by name.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "404":
+          $ref: "#/components/responses/Error"
+    put:
+      summary: Update an application.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateApplicationRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+    delete:
+      summary: Delete an application.
+      responses:
+        "204": { description: No Content }
+  /api/v1/applications/{name}/sync:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    post:
+      summary: Trigger a sync.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SyncRequest" }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  syncId: { type: string }
+                  status: { type: string }
+  /api/v1/applications/{name}/refresh:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    post:
+      summary: Force a status reconcile.
+      responses:
+        "202": { description: Accepted }
+  /api/v1/applications/{name}/manifests:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    get:
+      summary: Return rendered manifests at the current target revision.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:  { type: string }
+                  manifests:
+                    type: array
+                    items: { type: object }
+  /api/v1/applications/{name}/diff:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    get:
+      summary: Return the per-resource diff.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiffResponse" }
+  /api/v1/applications/{name}/resource-tree:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    get:
+      summary: Return the live resource tree.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ResourceTree" }
+  /api/v1/applications/{name}/history:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    get:
+      summary: Return recent sync operations.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SyncOperation" }
+  /api/v1/applications/{name}/revisions:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: query
+        name: limit
+        schema: { type: integer }
+    get:
+      summary: List recent Git commits for the application source path.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  commits:
+                    type: array
+                    items: { type: object }
+  /api/v1/applications/{name}/revision-diff:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: query
+        name: from
+        required: true
+        schema: { type: string }
+      - in: query
+        name: to
+        required: true
+        schema: { type: string }
+    get:
+      summary: Unified diff for the app path between two commit SHAs.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  diff: { type: string }
+  /api/v1/applications/{name}/rollback:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+    post:
+      summary: Pin targetRevision to a Git revision (branch, tag, or SHA).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [revision]
+              properties:
+                revision: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  targetRevision: { type: string }
+  /api/v1/applications/{name}/pods/{pod}:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: path
+        name: pod
+        required: true
+        schema: { type: string }
+    get:
+      summary: Describe a pod belonging to the application (tracking label).
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PodSummary" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/applications/{name}/pods/{pod}/events:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: path
+        name: pod
+        required: true
+        schema: { type: string }
+    get:
+      summary: List Kubernetes events for a pod.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PodEvent" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/applications/{name}/pods/{pod}/log:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: path
+        name: pod
+        required: true
+        schema: { type: string }
+      - in: query
+        name: container
+        schema: { type: string }
+      - in: query
+        name: tailLines
+        schema: { type: integer }
+      - in: query
+        name: follow
+        schema: { type: boolean }
+    get:
+      summary: Stream or return pod logs (text/plain).
+      responses:
+        "200":
+          description: Log body
+          content:
+            text/plain:
+              schema: { type: string }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/applications/{name}/pods/{pod}/exec:
+    parameters:
+      - in: path
+        name: name
+        required: true
+        schema: { type: string }
+      - in: path
+        name: pod
+        required: true
+        schema: { type: string }
+      - in: query
+        name: container
+        schema: { type: string }
+      - in: query
+        name: command
+        schema: { type: string }
+      - in: query
+        name: token
+        schema: { type: string }
+        description: Same admin token as cookie (optional if cookie sent).
+    get:
+      summary: WebSocket upgrade for interactive pod exec (binary frames, see server implementation).
+      responses:
+        "101": { description: Switching Protocols }
+  /api/v1/repositories:
+    get:
+      summary: List repositories.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Repository" }
+    post:
+      summary: Register a repository.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRepositoryRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Repository" }
+  /api/v1/repositories/{id}:
+    parameters:
+      - in: path
+        name: id
+        required: true
+        schema: { type: string }
+    delete:
+      summary: Delete a repository.
+      responses:
+        "204": { description: No Content }
+  /api/v1/clusters:
+    get:
+      summary: List clusters.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Cluster" }
+    post:
+      summary: Register or update a cluster from kubeconfig YAML (encrypted at rest).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, kubeconfigYaml]
+              properties:
+                name: { type: string }
+                kubeconfigYaml: { type: string }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cluster" }
+  /api/v1/projects:
+    get:
+      summary: List Argo-style projects.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    description: { type: string }
+                    createdAt: { type: string, format: date-time }
+  /api/v1/audit-log:
+    get:
+      summary: Export recent audit log rows (newest first).
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+  /api/v1/notifications/test:
+    post:
+      summary: POST a test JSON payload to an external webhook URL.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [url]
+              properties:
+                url: { type: string }
+      responses:
+        "200":
+          description: Webhook response summary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  statusCode: { type: integer }
+                  bodyPrefix: { type: string }
+  /metrics:
+    get:
+      summary: Prometheus metrics (no bearer auth).
+      security: []
+      responses:
+        "200":
+          description: Prometheus text exposition format
+          content:
+            text/plain:
+              schema: { type: string }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  responses:
+    Error:
+      description: Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:   { type: string }
+              message: { type: string }
+  schemas:
+    Application:
+      type: object
+      required: [name, source, destination, status, createdAt, updatedAt]
+      properties:
+        name: { type: string }
+        project: { type: string }
+        source: { $ref: "#/components/schemas/AppSource" }
+        destination: { $ref: "#/components/schemas/AppDestination" }
+        syncPolicy: { $ref: "#/components/schemas/SyncPolicy" }
+        status: { $ref: "#/components/schemas/AppStatus" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    AppSource:
+      type: object
+      properties:
+        repoUrl: { type: string }
+        path: { type: string }
+        targetRevision: { type: string }
+        helmValues:
+          type: object
+          additionalProperties: true
+          description: Optional values merged via helm template -f when path is a Helm chart
+    AppDestination:
+      type: object
+      properties:
+        cluster: { type: string }
+        namespace: { type: string }
+    SyncPolicy:
+      type: object
+      properties:
+        automated:
+          type: object
+          nullable: true
+          properties:
+            prune: { type: boolean }
+            selfHeal: { type: boolean }
+        syncOptions:
+          type: array
+          items: { type: string }
+          description: Argo-style options (e.g. CreateNamespace=true); subset interpreted by k8s-ui
+        managedNamespaceMetadata:
+          type: object
+          properties:
+            labels:
+              type: object
+              additionalProperties: { type: string }
+            annotations:
+              type: object
+              additionalProperties: { type: string }
+        createNamespace: { type: boolean }
+        materializeChildApps: { type: boolean }
+    AppStatus:
+      type: object
+      properties:
+        sync: { type: string }
+        health: { type: string }
+        observedRevision: { type: string }
+        lastSyncedAt: { type: string, format: date-time, nullable: true }
+        message: { type: string }
+        syncOperation:
+          type: object
+          nullable: true
+          properties:
+            status: { type: string, description: "Pending or Running" }
+            message: { type: string }
+        lastCompletedSync:
+          type: object
+          nullable: true
+          properties:
+            status: { type: string, description: "Succeeded or Failed" }
+            message: { type: string }
+    CreateApplicationRequest:
+      type: object
+      required: [name, source, destination]
+      properties:
+        name: { type: string }
+        project: { type: string }
+        source: { $ref: "#/components/schemas/AppSource" }
+        destination: { $ref: "#/components/schemas/AppDestination" }
+        syncPolicy: { $ref: "#/components/schemas/SyncPolicy" }
+    UpdateApplicationRequest:
+      type: object
+      properties:
+        source: { $ref: "#/components/schemas/AppSource" }
+        destination: { $ref: "#/components/schemas/AppDestination" }
+        syncPolicy: { $ref: "#/components/schemas/SyncPolicy" }
+    SyncRequest:
+      type: object
+      properties:
+        revision: { type: string }
+        prune: { type: boolean }
+        dryRun: { type: boolean }
+        resources:
+          type: array
+          items: { type: string }
+          description: Resource keys "group/Kind/namespace/name"; omit or empty for full sync
+    ResourceNode:
+      type: object
+      properties:
+        group: { type: string }
+        version: { type: string }
+        kind: { type: string }
+        namespace: { type: string }
+        name: { type: string }
+        uid: { type: string }
+        health: { type: string }
+        sync: { type: string }
+        syncMessage: { type: string }
+        podPhase: { type: string }
+        parentUid: { type: string }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/ResourceNode" }
+    ActiveSyncInfo:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string }
+        message: { type: string }
+        resources:
+          type: array
+          items: { $ref: "#/components/schemas/SyncResourceResult" }
+    ResourceTree:
+      type: object
+      properties:
+        nodes:
+          type: array
+          items: { $ref: "#/components/schemas/ResourceNode" }
+        activeSync:
+          allOf:
+            - $ref: "#/components/schemas/ActiveSyncInfo"
+          nullable: true
+    PodSummary:
+      type: object
+      properties:
+        name: { type: string }
+        namespace: { type: string }
+        phase: { type: string }
+        containers:
+          type: array
+          items: { $ref: "#/components/schemas/PodContainer" }
+        initContainers:
+          type: array
+          items: { $ref: "#/components/schemas/PodContainer" }
+    PodContainer:
+      type: object
+      properties:
+        name: { type: string }
+    PodEvent:
+      type: object
+      properties:
+        type: { type: string }
+        reason: { type: string }
+        message: { type: string }
+        count: { type: integer }
+        firstTime: { type: string, format: date-time, nullable: true }
+        lastTime: { type: string, format: date-time, nullable: true }
+    ResourceDiff:
+      type: object
+      properties:
+        group: { type: string }
+        version: { type: string }
+        kind: { type: string }
+        namespace: { type: string }
+        name: { type: string }
+        sync: { type: string }
+        desiredYaml: { type: string }
+        liveYaml: { type: string }
+        normalizedDiff: { type: string }
+    DiffResponse:
+      type: object
+      properties:
+        resources:
+          type: array
+          items: { $ref: "#/components/schemas/ResourceDiff" }
+        outOfSync: { type: integer }
+        synced: { type: integer }
+    Repository:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: string }
+        type: { type: string }
+        hasCreds: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CreateRepositoryRequest:
+      type: object
+      required: [url]
+      properties:
+        url: { type: string }
+        username: { type: string }
+        password: { type: string }
+    Cluster:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        serverUrl: { type: string }
+        inCluster: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    SyncResourceResult:
+      type: object
+      properties:
+        group: { type: string }
+        version: { type: string }
+        kind: { type: string }
+        namespace: { type: string }
+        name: { type: string }
+        status: { type: string }
+        message: { type: string }
+    SyncOperation:
+      type: object
+      properties:
+        id: { type: string }
+        appName: { type: string }
+        revision: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time, nullable: true }
+        status: { type: string }
+        initiatedBy: { type: string }
+        message: { type: string }
+        resources:
+          type: array
+          items: { $ref: "#/components/schemas/SyncResourceResult" }

@@ -1,0 +1,228 @@
+// Package domain holds the core entity types used by the k8s-ui control
+// plane. These mirror rows in the Postgres schema and are the canonical
+// in-memory representation used by handlers, reconcilers, and the API DTOs.
+package domain
+
+import (
+	"encoding/json"
+	"time"
+)
+
+// SyncStatus is the high-level Git-vs-cluster comparison result for an Application.
+type SyncStatus string
+
+const (
+	SyncStatusUnknown   SyncStatus = "Unknown"
+	SyncStatusSynced    SyncStatus = "Synced"
+	SyncStatusOutOfSync SyncStatus = "OutOfSync"
+)
+
+// HealthStatus is the aggregated workload health of an Application.
+type HealthStatus string
+
+const (
+	HealthUnknown     HealthStatus = "Unknown"
+	HealthHealthy     HealthStatus = "Healthy"
+	HealthProgressing HealthStatus = "Progressing"
+	HealthDegraded    HealthStatus = "Degraded"
+	HealthSuspended   HealthStatus = "Suspended"
+	HealthMissing     HealthStatus = "Missing"
+)
+
+// RepositoryType narrows manifest renderer selection (MVP supports plain only).
+type RepositoryType string
+
+const (
+	RepoTypeGit RepositoryType = "git"
+)
+
+// Repository describes a Git source. Credentials are stored encrypted at
+// rest; the in-memory `Credentials` field is only populated after decryption.
+type Repository struct {
+	ID                   string         `json:"id"`
+	URL                  string         `json:"url"`
+	Type                 RepositoryType `json:"type"`
+	CredentialsEncrypted []byte         `json:"-"`
+	Credentials          *RepoCreds     `json:"-"`
+	CreatedAt            time.Time      `json:"createdAt"`
+}
+
+// RepoCreds carries decrypted authentication material.
+type RepoCreds struct {
+	Username   string `json:"username,omitempty"`
+	Password   string `json:"password,omitempty"`
+	SSHPrivKey string `json:"sshPrivKey,omitempty"`
+}
+
+// Cluster is a managed Kubernetes target. For the MVP we always have a
+// single "in-cluster" row.
+type Cluster struct {
+	ID                  string    `json:"id"`
+	Name                string    `json:"name"`
+	ServerURL           string    `json:"serverUrl"`
+	CACert              []byte    `json:"-"`
+	AuthConfigEncrypted []byte    `json:"-"`
+	InCluster           bool      `json:"inCluster"`
+	CreatedAt           time.Time `json:"createdAt"`
+}
+
+// IgnoreDifferenceRule suppresses OutOfSync signals for specific fields on
+// matching resources (mirrors Argo CD spec.ignoreDifferences).
+type IgnoreDifferenceRule struct {
+	// Group is the API group, e.g. "apps". Empty string matches core resources.
+	Group string `json:"group"`
+	// Kind is the resource kind, e.g. "Deployment".
+	Kind string `json:"kind"`
+	// Name restricts the rule to a single resource name (optional).
+	Name string `json:"name,omitempty"`
+	// Namespace restricts the rule to a single namespace (optional).
+	Namespace string `json:"namespace,omitempty"`
+	// JSONPointers are RFC 6901 paths removed from both desired and live objects
+	// before comparison, e.g. "/spec/replicas".
+	JSONPointers []string `json:"jsonPointers,omitempty"`
+}
+
+// SyncPolicy controls automation knobs on an Application.
+type SyncPolicy struct {
+	Automated *AutomatedSync `json:"automated,omitempty"`
+	// SyncOptions lists Argo-style options, e.g. CreateNamespace=true (subset is interpreted by k8s-ui).
+	SyncOptions []string `json:"syncOptions,omitempty"`
+	// ManagedNamespaceMetadata is applied when EffectiveCreateNamespace() is true.
+	ManagedNamespaceMetadata *ManagedNamespaceMetadata `json:"managedNamespaceMetadata,omitempty"`
+	// CreateNamespace applies the destination Namespace before other resources (Argo: CreateNamespace=true).
+	CreateNamespace bool `json:"createNamespace,omitempty"`
+	// IgnoreDifferences suppresses OutOfSync for specific fields (Argo-compatible).
+	IgnoreDifferences []IgnoreDifferenceRule `json:"ignoreDifferences,omitempty"`
+}
+
+// AutomatedSync mirrors ArgoCD's automated sync policy shape.
+type AutomatedSync struct {
+	Prune    bool `json:"prune"`
+	SelfHeal bool `json:"selfHeal"`
+}
+
+// ProjectResourceRule is an allow/deny entry for a resource group+kind.
+type ProjectResourceRule struct {
+	Group string `json:"group"` // "" = core
+	Kind  string `json:"kind"`  // "*" = any
+}
+
+// ProjectDestination is an allowed destination for an AppProject.
+type ProjectDestination struct {
+	// Server is the cluster server URL; "*" = any cluster.
+	Server string `json:"server,omitempty"`
+	// Name is the k8s-ui cluster name; "*" = any cluster.
+	Name string `json:"name,omitempty"`
+	// Namespace pattern; "*" = any namespace.
+	Namespace string `json:"namespace"`
+}
+
+// ProjectPolicies mirrors Argo CD AppProject policy fields.
+type ProjectPolicies struct {
+	// SourceRepos is the list of allowed Git repository URL patterns. "*" = any.
+	SourceRepos []string `json:"sourceRepos,omitempty"`
+	// Destinations lists permitted cluster+namespace combinations.
+	Destinations []ProjectDestination `json:"destinations,omitempty"`
+	// ClusterResourceWhitelist is the set of cluster-scoped resource group/kind
+	// allowed for this project. Empty = none allowed (unless admin).
+	ClusterResourceWhitelist []ProjectResourceRule `json:"clusterResourceWhitelist,omitempty"`
+	// NamespaceResourceBlacklist lists namespace-scoped resource group/kind
+	// that are denied for this project.
+	NamespaceResourceBlacklist []ProjectResourceRule `json:"namespaceResourceBlacklist,omitempty"`
+}
+
+// Project is a tenancy / RBAC scope (Argo CD project).
+type Project struct {
+	ID          string          `json:"id"`
+	Name        string          `json:"name"`
+	Description string          `json:"description"`
+	Policies    ProjectPolicies `json:"policies"`
+	CreatedAt   time.Time       `json:"createdAt"`
+}
+
+// Application is the user-defined desired-state declaration.
+type Application struct {
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Project        string `json:"project"`
+	RepoID         string `json:"repoId"`
+	Path           string `json:"path"`
+	TargetRevision string `json:"targetRevision"`
+	// HelmValuesJSON is optional JSON merged into `helm template` (-f). Nil/empty = chart defaults only.
+	HelmValuesJSON []byte `json:"-"`
+	// HelmValueFiles lists paths relative to the chart directory that are passed
+	// as additional -f layers to helm template (Argo: spec.source.helm.valueFiles).
+	HelmValueFiles []string   `json:"helmValueFiles,omitempty"`
+	DestClusterID  string     `json:"destClusterId"`
+	DestNamespace  string     `json:"destNamespace"`
+	SyncPolicy     SyncPolicy `json:"syncPolicy"`
+	// ParentApp is the name of the parent Application that declared this app
+	// as a child (App of Apps pattern). Empty string means a top-level app.
+	ParentApp string    `json:"parentApp,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// ApplicationStatus is the hot-path status row, separated from Application
+// to limit row churn during high-frequency reconciles.
+type ApplicationStatus struct {
+	AppID            string       `json:"appId"`
+	SyncStatus       SyncStatus   `json:"syncStatus"`
+	HealthStatus     HealthStatus `json:"healthStatus"`
+	ObservedRevision string       `json:"observedRevision"`
+	LastSyncedAt     *time.Time   `json:"lastSyncedAt,omitempty"`
+	Message          string       `json:"message"`
+	UpdatedAt        time.Time    `json:"updatedAt"`
+}
+
+// SyncRunRequest is stored with a pending sync and read by the controller.
+type SyncRunRequest struct {
+	DryRun    bool     `json:"dryRun"`
+	Prune     bool     `json:"prune"`
+	Resources []string `json:"resources,omitempty"` // resource keys "group/Kind/namespace/name"; empty = all
+}
+
+// SyncOperation records a user- or automation-initiated apply attempt.
+type SyncOperation struct {
+	ID          string               `json:"id"`
+	AppID       string               `json:"appId"`
+	StartedAt   time.Time            `json:"startedAt"`
+	FinishedAt  *time.Time           `json:"finishedAt,omitempty"`
+	Revision    string               `json:"revision"`
+	InitiatedBy string               `json:"initiatedBy"`
+	Status      SyncOpStatus         `json:"status"`
+	Message     string               `json:"message"`
+	Request     SyncRunRequest       `json:"request"`
+	Resources   []SyncResourceResult `json:"resources"`
+}
+
+// SyncOpStatus is the high level result of a SyncOperation.
+type SyncOpStatus string
+
+const (
+	SyncOpPending   SyncOpStatus = "Pending"
+	SyncOpRunning   SyncOpStatus = "Running"
+	SyncOpSucceeded SyncOpStatus = "Succeeded"
+	SyncOpFailed    SyncOpStatus = "Failed"
+)
+
+// SyncResourceResult is the per-object result of a SyncOperation.
+type SyncResourceResult struct {
+	Group     string `json:"group"`
+	Version   string `json:"version"`
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
+	Name      string `json:"name"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
+}
+
+// AuditEntry is a single row in the audit log.
+type AuditEntry struct {
+	ID       string          `json:"id"`
+	TS       time.Time       `json:"ts"`
+	Actor    string          `json:"actor"`
+	Action   string          `json:"action"`
+	Resource string          `json:"resource"`
+	Payload  json.RawMessage `json:"payload,omitempty"`
+}

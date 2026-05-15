@@ -1,0 +1,27 @@
+# Docker Desktop — base Helm values (Postgres, RBAC, service).
+# Image reference is set by deploy.sh:
+#   - default: push to ttl.sh then pull with imagePullPolicy: Always (no Docker Desktop extra settings)
+#   - USE_LOCAL_IMAGE_NEVER=1: merge values.never-pull.yaml (k8s-ui:local + Never)
+
+service:
+  type: ClusterIP
+  port: 80
+
+adminToken: devtoken
+encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+databaseUrl: postgres://k8sui:k8sui@k8s-ui-postgres:5432/k8sui?sslmode=disable
+
+postgres:
+  enabled: true
+  storage: 1Gi
+
+rbac:
+  clusterAdmin: true
+
+# Pin to control-plane on multi-node Docker Desktop (image still pulled from registry when using ttl.sh).
+nodeSelector:
+  kubernetes.io/hostname: desktop-control-plane
+tolerations:
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule

@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "k8s-ui.fullname" . }}
+  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels: {{- include "k8s-ui.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "k8s-ui.labels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "k8s-ui.fullname" . }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.postgres.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - until pg_isready -h k8s-ui-postgres -p 5432 -U k8sui; do echo waiting for postgres; sleep 2; done
+      {{- end }}
+      containers:
+        - name: k8s-ui
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports: [{ containerPort: 8080, name: http }]
+          envFrom:
+            - secretRef: { name: {{ include "k8s-ui.fullname" . }} }
+          {{- if and .Values.appsCatalog.enabled .Values.appsCatalog.repoUrl }}
+          env:
+            - name: APPS_CATALOG_REPO_URL
+              value: {{ .Values.appsCatalog.repoUrl | quote }}
+            - name: APPS_CATALOG_PATH
+              value: {{ .Values.appsCatalog.path | default "k8s-ui/apps.yaml" | quote }}
+            - name: APPS_CATALOG_REVISION
+              value: {{ .Values.appsCatalog.revision | default "HEAD" | quote }}
+            - name: APPS_CATALOG_INTERVAL
+              value: {{ .Values.appsCatalog.interval | default "5m" | quote }}
+          {{- end }}
+          readinessProbe: { httpGet: { path: /readyz, port: 8080 }, initialDelaySeconds: 5 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 10 }
+          resources: {{ toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: repo-cache, mountPath: /tmp/k8s-ui-repos }
+      volumes:
+        - name: repo-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "k8s-ui.fullname" . }}
+  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector: {{- include "k8s-ui.labels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: 8080
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}

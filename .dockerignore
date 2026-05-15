@@ -1,0 +1,8 @@
+.git
+web/node_modules
+web/dist
+bin
+*.md
+.cursor
+deploy/docker-desktop/*.log
+**/.DS_Store

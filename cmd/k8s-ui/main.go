@@ -1,0 +1,48 @@
+// Command k8s-ui is the single-binary entry point. Subcommands:
+//
+//	apiserver    HTTP + WebSocket gateway
+//	controller   reconciliation loop
+//	reposerver   git + manifest rendering
+//	all-in-one   run all three in-process (MVP default)
+//	migrate      run database migrations (up/down)
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/spf13/cobra"
+
+	"github.com/k8s-ui/k8s-ui/internal/cli"
+	"github.com/k8s-ui/k8s-ui/internal/config"
+)
+
+func main() {
+	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	slog.SetDefault(logger)
+
+	root := &cobra.Command{
+		Use:     "k8s-ui",
+		Short:   "GitOps dashboard for Kubernetes",
+		Version: config.Version,
+		SilenceUsage: true,
+	}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	root.AddCommand(cli.NewAPIServerCmd(ctx))
+	root.AddCommand(cli.NewControllerCmd(ctx))
+	root.AddCommand(cli.NewRepoServerCmd(ctx))
+	root.AddCommand(cli.NewAllInOneCmd(ctx))
+	root.AddCommand(cli.NewMigrateCmd(ctx))
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

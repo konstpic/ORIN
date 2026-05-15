@@ -1,0 +1,19 @@
+bin/
+dist/
+*.test
+*.out
+.coverage
+.env
+.env.local
+
+# Node / frontend
+web/node_modules/
+web/dist/
+web/.vite/
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
