@@ -73,7 +73,7 @@ export interface AppStatus {
   /** Git commit info for the current observedRevision (omitted when unknown). */
   observedCommit?: GitCommit | null;
   /** Queued or running apply job (from sync_operations). */
-  syncOperation?: { status: string; message?: string } | null;
+  syncOperation?: { id: string; status: string; message?: string } | null;
   /** Most recently finished sync job (omitted while syncOperation is set). */
   lastCompletedSync?: { status: string; message?: string } | null;
 }

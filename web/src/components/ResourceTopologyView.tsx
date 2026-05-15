@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import dagre from "dagre";
 import {
   Background,
@@ -241,7 +241,8 @@ const nodeTypes = {
 
 function layoutDagre(nodes: Node[], edges: Edge[]): Node[] {
   const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 72, marginx: 32, marginy: 28 });
+  // Increased nodesep from 40 to 60 and ranksep from 72 to 100 to prevent nodes from overlapping
+  g.setGraph({ rankdir: "LR", nodesep: 60, ranksep: 100, marginx: 40, marginy: 36 });
   nodes.forEach((n) => {
     const { w, h } = nodeMeasuredSize(n);
     g.setNode(n.id, { width: w, height: h });
@@ -324,16 +325,16 @@ function treeToFlow(roots: ResourceNode[]): { nodes: Node[]; edges: Edge[] } {
   return { nodes, edges };
 }
 
-function FitViewHelper({ nodes }: { nodes: Node[] }) {
+function FitViewHelper({ shouldFit }: { shouldFit: boolean }) {
   const { fitView } = useReactFlow();
   useEffect(() => {
-    if (nodes.length) {
+    if (shouldFit) {
       const id = requestAnimationFrame(() => {
         fitView({ padding: 0.18, duration: 250, minZoom: 0.5, maxZoom: 1.1 });
       });
       return () => cancelAnimationFrame(id);
     }
-  }, [nodes, fitView]);
+  }, [shouldFit, fitView]);
   return null;
 }
 
@@ -356,11 +357,16 @@ function TopologyFlowInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [isFirstRender, setIsFirstRender] = useState(true);
 
   useEffect(() => {
     setNodes(initialNodes);
     setEdges(initialEdges);
-  }, [initialNodes, initialEdges, setNodes, setEdges]);
+    // Only fit view on first render, not on every update
+    if (isFirstRender && initialNodes.length > 0) {
+      setIsFirstRender(false);
+    }
+  }, [initialNodes, initialEdges, setNodes, setEdges, isFirstRender]);
 
   const onNodeClick = useCallback(
     (_evt: unknown, node: Node) => {
@@ -423,7 +429,7 @@ function TopologyFlowInner({
         maskColor="rgb(0 0 0 / 45%)"
         nodeColor={() => "rgba(34, 211, 238, 0.45)"}
       />
-      <FitViewHelper nodes={nodes} />
+      <FitViewHelper shouldFit={isFirstRender && nodes.length > 0} />
     </ReactFlow>
     </div>
   );

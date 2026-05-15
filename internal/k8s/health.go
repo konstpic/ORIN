@@ -25,9 +25,15 @@ func Health(obj *unstructured.Unstructured) domain.HealthStatus {
 		return podHealth(obj)
 	case "Job":
 		return jobHealth(obj)
+	// Resources that are always healthy once created (no status to check)
 	case "Service", "Ingress", "ConfigMap", "Secret",
 		"ServiceAccount", "Role", "RoleBinding",
-		"ClusterRole", "ClusterRoleBinding", "Namespace":
+		"ClusterRole", "ClusterRoleBinding", "Namespace",
+		"PersistentVolumeClaim", "PersistentVolume",
+		"StorageClass", "NetworkPolicy", "ResourceQuota",
+		"LimitRange", "HorizontalPodAutoscaler",
+		"PodDisruptionBudget", "PriorityClass",
+		"Endpoints", "EndpointSlice":
 		return domain.HealthHealthy
 	}
 	return domain.HealthUnknown

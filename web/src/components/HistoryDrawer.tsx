@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { AlertTriangle, CheckCircle2, Clock, User, XCircle } from "lucide-react";
 import { api } from "../api/client";
 
 export function HistoryDrawer({
@@ -40,53 +41,155 @@ export function HistoryDrawer({
           )}
           {!!data?.length && (
             <div className="space-y-6">
-              {data.map((op) => (
-                <div key={op.id} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] overflow-hidden">
-                  <div className="px-3 py-2 text-xs border-b border-[var(--color-border)] bg-[var(--color-surface)] flex flex-wrap gap-x-4 gap-y-1 text-[var(--color-text)]">
-                    <span>
-                      <span className="text-[var(--color-text-muted)]">Started:</span> {new Date(op.startedAt).toLocaleString()}
-                    </span>
-                    <span className="font-mono">@{op.revision?.slice(0, 8)}</span>
-                    <span className="font-medium">{op.status}</span>
-                    <span className="text-[var(--color-text-muted)]">by {op.initiatedBy}</span>
-                  </div>
-                  {op.message && <div className="px-3 py-2 text-xs text-amber-300/90 border-b border-[var(--color-border)]">{op.message}</div>}
-                  {op.resources.length > 0 && (
-                    <table className="w-full text-left text-xs">
-                      <thead className="text-[var(--color-text-muted)] uppercase tracking-wide bg-[var(--color-surface)]">
-                        <tr>
-                          <th className="px-2 py-1.5">Kind</th>
-                          <th className="px-2 py-1.5">Name</th>
-                          <th className="px-2 py-1.5">Status</th>
-                          <th className="px-2 py-1.5">Message</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-                        {op.resources.map((r, i) => (
-                          <tr key={`${r.kind}-${r.name}-${i}`} className="align-top">
-                            <td className="px-2 py-1 font-mono text-[var(--color-accent)]">{r.kind}</td>
-                            <td className="px-2 py-1 font-mono">{r.name}</td>
-                            <td className="px-2 py-1 whitespace-nowrap">
-                              <span
-                                className={
-                                  r.status === "Failed"
-                                    ? "text-red-400 font-medium"
-                                    : r.status === "Applied" || r.status === "DryRun" || r.status === "Pruned"
-                                      ? "text-emerald-400"
-                                      : "text-[var(--color-text-muted)]"
-                                }
-                              >
-                                {r.status}
-                              </span>
-                            </td>
-                            <td className="px-2 py-1 text-[var(--color-text-muted)] break-all">{r.message || "—"}</td>
+              {data.map((op) => {
+                const isFailed = op.status === "Failed";
+                const isSuccess = op.status === "Succeeded" || op.status === "Applied";
+                const failedResources = op.resources.filter((r) => r.status === "Failed");
+                const successResources = op.resources.filter((r) => r.status === "Applied" || r.status === "Pruned" || r.status === "DryRun");
+                
+                return (
+                  <div 
+                    key={op.id} 
+                    className={`rounded-lg border overflow-hidden ${
+                      isFailed 
+                        ? "border-red-500/50 bg-red-500/5" 
+                        : isSuccess 
+                        ? "border-emerald-500/30 bg-emerald-500/5" 
+                        : "border-[var(--color-border)] bg-[var(--color-surface-muted)]"
+                    }`}
+                  >
+                    {/* Header with status icon */}
+                    <div className={`px-3 py-2.5 border-b flex items-center gap-3 ${
+                      isFailed 
+                        ? "border-red-500/30 bg-red-500/10" 
+                        : isSuccess 
+                        ? "border-emerald-500/20 bg-emerald-500/10" 
+                        : "border-[var(--color-border)] bg-[var(--color-surface)]"
+                    }`}>
+                      {isFailed ? (
+                        <XCircle className="size-5 shrink-0 text-red-400" strokeWidth={2} />
+                      ) : isSuccess ? (
+                        <CheckCircle2 className="size-5 shrink-0 text-emerald-400" strokeWidth={2} />
+                      ) : (
+                        <AlertTriangle className="size-5 shrink-0 text-amber-400" strokeWidth={2} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          <span className={`font-semibold ${
+                            isFailed ? "text-red-200" : isSuccess ? "text-emerald-200" : "text-[var(--color-text)]"
+                          }`}>
+                            {op.status}
+                          </span>
+                          <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
+                            <Clock className="size-3" />
+                            {new Date(op.startedAt).toLocaleString()}
+                          </span>
+                          <span className="font-mono text-[var(--color-text-muted)]">@{op.revision?.slice(0, 8)}</span>
+                          <span className="flex items-center gap-1 text-[var(--color-text-muted)]">
+                            <User className="size-3" />
+                            {op.initiatedBy}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Operation message */}
+                    {op.message && (
+                      <div className={`px-3 py-2 text-xs border-b ${
+                        isFailed 
+                          ? "text-red-300 bg-red-500/10 border-red-500/30" 
+                          : "text-amber-300/90 border-[var(--color-border)]"
+                      }`}>
+                        {op.message}
+                      </div>
+                    )}
+                    
+                    {/* Failed resources - show prominently */}
+                    {failedResources.length > 0 && (
+                      <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/30">
+                        <div className="text-xs font-semibold text-red-200 mb-2 flex items-center gap-2">
+                          <XCircle className="size-4" strokeWidth={2} />
+                          Failed Resources ({failedResources.length})
+                        </div>
+                        <div className="space-y-2">
+                          {failedResources.map((r, i) => (
+                            <div key={`${r.kind}-${r.name}-${i}`} className="rounded border border-red-500/40 bg-red-500/5 p-2">
+                              <div className="flex items-start gap-2 mb-1">
+                                <span className="font-mono text-xs text-red-300 font-semibold">{r.kind}</span>
+                                <span className="font-mono text-xs text-red-200">{r.name}</span>
+                              </div>
+                              {r.message && (
+                                <div className="text-xs text-red-300/90 leading-relaxed break-words pl-0">
+                                  {r.message}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Successful resources - collapsible table */}
+                    {successResources.length > 0 && (
+                      <details className="group" open={failedResources.length === 0}>
+                        <summary className="px-3 py-2 text-xs font-semibold text-emerald-300 cursor-pointer hover:bg-emerald-500/5 flex items-center gap-2 border-b border-[var(--color-border)]">
+                          <CheckCircle2 className="size-4" strokeWidth={2} />
+                          Successful Resources ({successResources.length})
+                          <span className="ml-auto text-[var(--color-text-muted)] group-open:rotate-90 transition-transform">▶</span>
+                        </summary>
+                        <table className="w-full text-left text-xs">
+                          <thead className="text-[var(--color-text-muted)] uppercase tracking-wide bg-[var(--color-surface)]">
+                            <tr>
+                              <th className="px-2 py-1.5">Kind</th>
+                              <th className="px-2 py-1.5">Name</th>
+                              <th className="px-2 py-1.5">Status</th>
+                              <th className="px-2 py-1.5">Message</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
+                            {successResources.map((r, i) => (
+                              <tr key={`${r.kind}-${r.name}-${i}`} className="align-top">
+                                <td className="px-2 py-1 font-mono text-[var(--color-accent)]">{r.kind}</td>
+                                <td className="px-2 py-1 font-mono">{r.name}</td>
+                                <td className="px-2 py-1 whitespace-nowrap">
+                                  <span className="text-emerald-400">{r.status}</span>
+                                </td>
+                                <td className="px-2 py-1 text-[var(--color-text-muted)] break-all">{r.message || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </details>
+                    )}
+                    
+                    {/* Other resources */}
+                    {op.resources.length > 0 && failedResources.length === 0 && successResources.length === 0 && (
+                      <table className="w-full text-left text-xs">
+                        <thead className="text-[var(--color-text-muted)] uppercase tracking-wide bg-[var(--color-surface)]">
+                          <tr>
+                            <th className="px-2 py-1.5">Kind</th>
+                            <th className="px-2 py-1.5">Name</th>
+                            <th className="px-2 py-1.5">Status</th>
+                            <th className="px-2 py-1.5">Message</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              ))}
+                        </thead>
+                        <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
+                          {op.resources.map((r, i) => (
+                            <tr key={`${r.kind}-${r.name}-${i}`} className="align-top">
+                              <td className="px-2 py-1 font-mono text-[var(--color-accent)]">{r.kind}</td>
+                              <td className="px-2 py-1 font-mono">{r.name}</td>
+                              <td className="px-2 py-1 whitespace-nowrap">
+                                <span className="text-[var(--color-text-muted)]">{r.status}</span>
+                              </td>
+                              <td className="px-2 py-1 text-[var(--color-text-muted)] break-all">{r.message || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

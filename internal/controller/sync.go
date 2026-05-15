@@ -121,13 +121,23 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	finalStatus := computeFinalStatus(op)
 	opMsg := syncPartialFailureMessage(op, finalStatus)
 	c.finishOp(ctx, app, op, finalStatus, opMsg)
+	
+	// Immediately compute health from live resources instead of defaulting to Progressing
+	_, healths, err := c.collectLive(ctx, app, applicable, kc)
+	var healthStatus domain.HealthStatus
+	if err != nil {
+		healthStatus = domain.HealthUnknown
+	} else {
+		healthStatus = k8s.Aggregate(healths)
+	}
+	
 	now := time.Now().UTC()
 	st := &domain.ApplicationStatus{
 		AppID:            app.ID,
 		ObservedRevision: rendered.Revision,
 		LastSyncedAt:     &now,
 		SyncStatus:       domain.SyncStatusSynced,
-		HealthStatus:     domain.HealthProgressing,
+		HealthStatus:     healthStatus,
 	}
 	if op.Status != domain.SyncOpSucceeded {
 		st.SyncStatus = domain.SyncStatusOutOfSync
@@ -137,7 +147,7 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	}
 	_ = c.store.Status.Upsert(ctx, st)
 	c.publishStatus(app, st)
-	// Always re-evaluate health shortly after a sync.
+	// Re-evaluate health shortly after a sync to catch any changes
 	c.statusQ.AddAfter(app.Name, 5*time.Second)
 	return nil
 }
@@ -186,10 +196,20 @@ func syncPartialFailureMessage(op *domain.SyncOperation, st domain.SyncOpStatus)
 		if r.Status != "Failed" {
 			continue
 		}
-		failed = append(failed, fmt.Sprintf("%s/%s: %s", r.Kind, r.Name, r.Message))
+		// Truncate long error messages
+		msg := r.Message
+		if len(msg) > 100 {
+			msg = msg[:97] + "..."
+		}
+		failed = append(failed, fmt.Sprintf("%s/%s: %s", r.Kind, r.Name, msg))
 	}
 	if len(failed) == 0 {
 		return ""
+	}
+	
+	// If there are many failures, show only first 3 and count
+	if len(failed) > 3 {
+		return fmt.Sprintf("%d resources failed. First 3: %s", len(failed), strings.Join(failed[:3], "; "))
 	}
 	return "Some resources failed: " + strings.Join(failed, "; ")
 }

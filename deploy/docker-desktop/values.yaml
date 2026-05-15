@@ -4,8 +4,8 @@
 #   - USE_LOCAL_IMAGE_NEVER=1: merge values.never-pull.yaml (k8s-ui:local + Never)
 
 service:
-  type: ClusterIP
-  port: 80
+  type: LoadBalancer
+  port: 8080
 
 adminToken: devtoken
 encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

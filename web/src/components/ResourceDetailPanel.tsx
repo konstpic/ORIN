@@ -76,12 +76,21 @@ export function ResourceDetailPanel({
   const isSyntheticApp = node.kind === "Application" && node.uid.startsWith("synthetic:app:");
   const isKindGroup = !!node.isKindGroup;
   const isPod = node.kind === "Pod";
+  const hasEvents = isPod || node.kind === "ReplicaSet" || node.kind === "Deployment" || node.kind === "StatefulSet" || node.kind === "DaemonSet";
 
   const { data: podEvents } = useQuery({
     queryKey: ["pod-events", appName, node.name],
     queryFn: () => api.getPodEvents(appName, node.name),
     enabled: isPod && tab === "events",
     refetchInterval: isPod && tab === "events" ? 5000 : false,
+    retry: 0,
+  });
+
+  const { data: resourceEvents } = useQuery({
+    queryKey: ["resource-events", appName, node.kind, node.name, node.namespace],
+    queryFn: () => api.getResourceEvents(appName, node.kind, node.name, node.namespace),
+    enabled: !isPod && hasEvents && tab === "events",
+    refetchInterval: !isPod && hasEvents && tab === "events" ? 5000 : false,
     retry: 0,
   });
 
@@ -423,6 +432,8 @@ export function ResourceDetailPanel({
           <div className="p-4 overflow-y-auto flex-1 min-h-0">
             {isPod ? (
               <EventsList events={podEvents} />
+            ) : hasEvents ? (
+              <EventsList events={resourceEvents} />
             ) : (
               <div className="text-sm text-[var(--color-text-muted)]">
                 Events are surfaced for <strong>Pod</strong> resources. For other kinds, use <code>kubectl describe</code> or inspect the owning pods.
@@ -449,7 +460,7 @@ export function ResourceDetailPanel({
 
 function EventsList({ events }: { events: PodEvent[] | undefined }) {
   if (!events) return <div className="text-xs text-[var(--color-text-muted)]">Loading events…</div>;
-  if (!events.length) return <div className="text-xs text-[var(--color-text-muted)]">No events for this pod.</div>;
+  if (!events.length) return <div className="text-xs text-[var(--color-text-muted)]">No events found.</div>;
   return (
     <table className="w-full text-left text-xs">
       <thead className="text-[var(--color-text-muted)] uppercase tracking-wide">

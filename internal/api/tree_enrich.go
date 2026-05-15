@@ -82,15 +82,27 @@ func mergeResourceNode(n *apiv1.ResourceNode, syncByKey map[string]string, desir
 func (s *Server) enrichResourceTree(r *http.Request, app *domain.Application, out *apiv1.ResourceTree) {
 	res, err := s.opts.Repo.RenderForApp(r.Context(), app)
 	if err != nil {
+		// If we can't render, mark all resources as Unknown sync status
+		for i := range out.Nodes {
+			setUnknownSyncRecursive(&out.Nodes[i])
+		}
 		return
 	}
 	applicable := manifest.FilterApplicable(res.Objects)
 	live, _, err := collectLiveForAPI(r, s, app, applicable)
 	if err != nil {
+		// If we can't get live resources, mark as Unknown
+		for i := range out.Nodes {
+			setUnknownSyncRecursive(&out.Nodes[i])
+		}
 		return
 	}
 	ds, err := k8s.Diff(applicable, live, app.SyncPolicy.IgnoreDifferences)
 	if err != nil {
+		// If diff fails, mark as Unknown
+		for i := range out.Nodes {
+			setUnknownSyncRecursive(&out.Nodes[i])
+		}
 		return
 	}
 	syncByKey := syncStatusByKey(ds)
@@ -106,5 +118,12 @@ func (s *Server) enrichResourceTree(r *http.Request, app *domain.Application, ou
 			Message:   active.Message,
 			Resources: toAPISyncResults(active.Resources),
 		}
+	}
+}
+
+func setUnknownSyncRecursive(n *apiv1.ResourceNode) {
+	n.Sync = "Unknown"
+	for i := range n.Children {
+		setUnknownSyncRecursive(&n.Children[i])
 	}
 }

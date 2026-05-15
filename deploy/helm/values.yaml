@@ -8,8 +8,8 @@ image:
 replicaCount: 1
 
 service:
-  type: ClusterIP
-  port: 80
+  type: LoadBalancer
+  port: 8080
   # When type is NodePort, set a fixed port (30000–32767) for local clusters.
   nodePort: null
 

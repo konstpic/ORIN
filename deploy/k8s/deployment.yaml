@@ -4,11 +4,13 @@ metadata:
   name: k8s-ui
   namespace: k8s-ui
 spec:
+  type: LoadBalancer
   selector: { app: k8s-ui }
   ports:
     - name: http
-      port: 80
+      port: 8080
       targetPort: 8080
+      protocol: TCP
 ---
 apiVersion: apps/v1
 kind: Deployment

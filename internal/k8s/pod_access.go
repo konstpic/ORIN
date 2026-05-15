@@ -108,9 +108,14 @@ func (cm *ClusterManager) podBelongsToApp(ctx context.Context, pod *corev1.Pod, 
 
 // ListPodEvents returns recent events for a pod in namespace, newest first.
 func (cm *ClusterManager) ListPodEvents(ctx context.Context, namespace, podName string) ([]corev1.Event, error) {
+	return cm.ListResourceEvents(ctx, namespace, "Pod", podName)
+}
+
+// ListResourceEvents returns recent events for any resource kind in namespace, newest first.
+func (cm *ClusterManager) ListResourceEvents(ctx context.Context, namespace, kind, name string) ([]corev1.Event, error) {
 	sel := fields.AndSelectors(
-		fields.OneTermEqualSelector("involvedObject.kind", "Pod"),
-		fields.OneTermEqualSelector("involvedObject.name", podName),
+		fields.OneTermEqualSelector("involvedObject.kind", kind),
+		fields.OneTermEqualSelector("involvedObject.name", name),
 	)
 	list, err := cm.clientset.CoreV1().Events(namespace).List(ctx, metav1.ListOptions{FieldSelector: sel.String()})
 	if err != nil {

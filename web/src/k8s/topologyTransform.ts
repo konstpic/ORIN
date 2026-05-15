@@ -3,8 +3,11 @@ import type { HealthStatus, ResourceNode, SyncStatus } from "../api/types";
 /** Group pods under ReplicaSet or Deployment when there are at least this many pods (compact topology). */
 export const POD_GROUP_MIN_PODS = 1;
 
-/** Group same-kind siblings (e.g. ConfigMap, Secret, Service) when count >= this threshold. */
+/** Group same-kind siblings (e.g. ConfigMap, Secret, Service) when count >= this threshold (topology view). */
 export const GENERIC_GROUP_MIN = 3;
+
+/** In list view, group same-kind siblings when count >= this threshold. */
+export const LIST_GROUP_MIN = 1;
 
 /** Kinds eligible for generic same-kind grouping under any parent. */
 const GROUPABLE_KINDS = new Set([
@@ -99,6 +102,7 @@ function groupSameKindSiblings(
   parentUid: string,
   expandedGroupParentUids: Set<string>,
   groupOtherKinds: boolean,
+  minCount = GENERIC_GROUP_MIN,
 ): ResourceNode[] {
   if (!groupOtherKinds || siblings.length === 0) return siblings;
 
@@ -117,7 +121,7 @@ function groupSameKindSiblings(
     const members = byKind.get(kind)!;
     const eligible =
       GROUPABLE_KINDS.has(kind) &&
-      members.length >= GENERIC_GROUP_MIN &&
+      members.length >= minCount &&
       !expandedGroupParentUids.has(`synthetic:group:${parentUid}:${kind}`);
     if (eligible) {
       out.push(makeKindGroup(kind, members, parentUid));
@@ -126,6 +130,15 @@ function groupSameKindSiblings(
     }
   }
   return out;
+}
+
+/** Recursively group same-kind siblings in the list view (lower threshold). */
+function groupForListView(node: ResourceNode, expandedGroupUids: Set<string>): ResourceNode {
+  const mappedChildren = (node.children ?? []).map((c) => groupForListView(c, expandedGroupUids));
+  return {
+    ...node,
+    children: groupSameKindSiblings(mappedChildren, node.uid, expandedGroupUids, true, LIST_GROUP_MIN),
+  };
 }
 
 export function buildSyntheticApplicationRoot(
@@ -187,14 +200,27 @@ export function prepareListRoots(
     appName: string;
     appHealth: HealthStatus;
     appSync: SyncStatus;
+    expandedGroupUids?: Set<string>;
   },
 ): ResourceNode[] {
+  const expanded = options.expandedGroupUids ?? new Set<string>();
+  const appUid = `synthetic:app:${options.appName}`;
+
+  // Group top-level siblings by kind
+  const groupedRoots = groupSameKindSiblings(
+    apiRoots.map((r) => groupForListView(r, expanded)),
+    appUid,
+    expanded,
+    true,
+    LIST_GROUP_MIN,
+  );
+
   return [
     buildSyntheticApplicationRoot(
       options.appName,
       options.appHealth,
       options.appSync,
-      apiRoots,
+      groupedRoots,
     ),
   ];
 }

@@ -83,6 +83,10 @@ export const api = {
       body: JSON.stringify(body),
     });
   },
+  cancelSync: (name: string, syncId: string) =>
+    request<void>(`/api/v1/applications/${encodeURIComponent(name)}/sync/${encodeURIComponent(syncId)}`, {
+      method: "DELETE",
+    }),
   refreshApp: (name: string) =>
     request<void>(`/api/v1/applications/${name}/refresh`, { method: "POST" }),
   appDiff: (name: string) =>
@@ -150,6 +154,14 @@ export const api = {
     request<PodEvent[]>(
       `/api/v1/applications/${encodeURIComponent(app)}/pods/${encodeURIComponent(pod)}/events`,
     ),
+
+  getResourceEvents: (app: string, kind: string, name: string, namespace?: string) => {
+    const q = new URLSearchParams({ kind, name });
+    if (namespace) q.set("namespace", namespace);
+    return request<PodEvent[]>(
+      `/api/v1/applications/${encodeURIComponent(app)}/resource-events?${q}`,
+    );
+  },
 
   async getPodLog(
     app: string,

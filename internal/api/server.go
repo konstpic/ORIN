@@ -80,6 +80,7 @@ func (s *Server) Handler() http.Handler {
 		r.Put("/api/v1/applications/{name}", s.updateApplication)
 		r.Delete("/api/v1/applications/{name}", s.deleteApplication)
 		r.Post("/api/v1/applications/{name}/sync", s.syncApplication)
+		r.Delete("/api/v1/applications/{name}/sync/{syncId}", s.cancelSync)
 		r.Post("/api/v1/applications/{name}/refresh", s.refreshApplication)
 		r.Get("/api/v1/applications/{name}/manifests", s.appManifests)
 		r.Get("/api/v1/applications/{name}/diff", s.appDiff)
@@ -91,6 +92,7 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/v1/applications/{name}/pods/{pod}/exec", s.appPodExecWS)
 		r.Delete("/api/v1/applications/{name}/pods/{pod}", s.deleteApplicationPod)
 		r.Get("/api/v1/applications/{name}/pods/{pod}", s.getApplicationPod)
+		r.Get("/api/v1/applications/{name}/resource-events", s.getApplicationResourceEvents)
 
 		r.Get("/api/v1/applications/{name}/resource-tree", s.appResourceTree)
 		r.Get("/api/v1/applications/{name}/history", s.appHistory)
@@ -113,14 +115,31 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/v1/notifications/test", s.postNotificationTest)
 	})
 
-	// Static frontend assets (optional).
+	// Static frontend assets (optional) - SPA fallback to index.html
 	if s.opts.Config.WebAssetsDir != "" {
 		fs := http.FileServer(http.Dir(s.opts.Config.WebAssetsDir))
 		r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			// API routes should 404 if not matched above
 			if strings.HasPrefix(req.URL.Path, "/api/") {
 				http.NotFound(w, req)
 				return
 			}
+			// Try to serve the file
+			path := req.URL.Path
+			
+			// Check if file exists
+			if info, err := http.Dir(s.opts.Config.WebAssetsDir).Open(path); err == nil {
+				stat, err := info.Stat()
+				info.Close()
+				// If it's a file (not directory) and exists, serve it
+				if err == nil && !stat.IsDir() {
+					fs.ServeHTTP(w, req)
+					return
+				}
+			}
+			
+			// File doesn't exist or is a directory - serve index.html for SPA routing
+			req.URL.Path = "/"
 			fs.ServeHTTP(w, req)
 		}))
 	}

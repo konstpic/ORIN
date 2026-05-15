@@ -368,6 +368,26 @@ func (s *Server) syncApplication(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]string{"syncId": op.ID, "status": string(op.Status)})
 }
 
+func (s *Server) cancelSync(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	syncID := chi.URLParam(r, "syncId")
+	app, err := s.opts.Store.Applications.GetByName(r.Context(), name)
+	if err != nil {
+		notFoundOr500(w, err)
+		return
+	}
+	if !requireProjectAccess(w, r, app.Project) {
+		return
+	}
+	if err := s.opts.Store.Sync.Cancel(r.Context(), syncID); err != nil {
+		writeError(w, http.StatusInternalServerError, "cancel_failed", err.Error())
+		return
+	}
+	// Trigger status reconcile to update UI immediately
+	s.opts.Controller.EnqueueStatus(app.Name)
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) refreshApplication(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	if _, ok := s.appByNameAuthorized(w, r, name); !ok {
@@ -491,7 +511,7 @@ func toAPINode(n *k8s.ResourceNode) apiv1.ResourceNode {
 		Name:      n.Object.GetName(),
 		UID:       string(n.Object.GetUID()),
 		Health:    string(k8s.Health(n.Object)),
-		Sync:      "Synced",
+		Sync:      "Unknown", // Will be set by enrichResourceTree
 	}
 	if ts := n.Object.GetCreationTimestamp(); !ts.IsZero() {
 		out.CreationTimestamp = ts.UTC().Format(time.RFC3339)

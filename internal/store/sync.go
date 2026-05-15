@@ -108,6 +108,18 @@ func (s *SyncOperations) ListByApp(ctx context.Context, appID string, limit int)
 	return out, rows.Err()
 }
 
+// Cancel marks a pending or running sync operation as failed/cancelled.
+func (s *SyncOperations) Cancel(ctx context.Context, syncID string) error {
+	now := time.Now().UTC()
+	_, err := s.pool.Exec(ctx, `
+		UPDATE sync_operations
+		SET status=$1, message=$2, finished_at=$3
+		WHERE id=$4 AND status IN ($5, $6)`,
+		domain.SyncOpFailed, "Cancelled by user", now, syncID,
+		domain.SyncOpPending, domain.SyncOpRunning)
+	return err
+}
+
 func scanSyncOp(s scanner) (*domain.SyncOperation, error) {
 	var op domain.SyncOperation
 	var resources []byte

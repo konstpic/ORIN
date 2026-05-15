@@ -100,6 +100,53 @@ func (s *Server) getApplicationPodEvents(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusOK, out)
 }
 
+// getApplicationResourceEvents returns recent Kubernetes events for any resource
+// (Deployment, ReplicaSet, etc.) belonging to the application.
+// Query params: kind, name, namespace.
+func (s *Server) getApplicationResourceEvents(w http.ResponseWriter, r *http.Request) {
+	appName := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, appName)
+	if !ok {
+		return
+	}
+
+	kind := r.URL.Query().Get("kind")
+	resName := r.URL.Query().Get("name")
+	namespace := r.URL.Query().Get("namespace")
+	if namespace == "" {
+		namespace = app.DestNamespace
+	}
+	if kind == "" || resName == "" {
+		writeError(w, http.StatusBadRequest, "bad_request", "kind and name query params are required")
+		return
+	}
+
+	evs, err := s.opts.Cluster.ListResourceEvents(r.Context(), namespace, kind, resName)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, "events_list_failed", err.Error())
+		return
+	}
+	out := make([]apiv1.PodEvent, 0, len(evs))
+	for _, e := range evs {
+		pe := apiv1.PodEvent{
+			Type:    e.Type,
+			Reason:  e.Reason,
+			Message: e.Message,
+			Count:   e.Count,
+		}
+		if !e.FirstTimestamp.IsZero() {
+			t := e.FirstTimestamp.Time
+			pe.FirstTime = &t
+		}
+		if !e.LastTimestamp.IsZero() {
+			t := e.LastTimestamp.Time
+			pe.LastTime = &t
+		}
+		out = append(out, pe)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
 func (s *Server) getApplicationPodLog(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	podName := chi.URLParam(r, "pod")

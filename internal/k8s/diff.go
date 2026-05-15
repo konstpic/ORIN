@@ -2,6 +2,7 @@ package k8s
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sort"
@@ -84,7 +85,9 @@ func Diff(desired []*unstructured.Unstructured, live []*unstructured.Unstructure
 			}
 		}
 
-		synced := lNorm != nil && structuralEqual(dNorm.Object, lNorm.Object)
+		// Compare using YAML strings instead of object structure to avoid false positives
+		// from differences in internal representation that don't affect the actual YAML
+		synced := lNorm != nil && (desiredYAML == liveYAML || structuralEqual(dNorm.Object, lNorm.Object))
 		item := ResourceDiff{
 			Group:       d.GroupVersionKind().Group,
 			Version:     d.GroupVersionKind().Version,
@@ -220,7 +223,168 @@ func normalize(u *unstructured.Unstructured) *unstructured.Unstructured {
 			delete(creationTimestamp, "creationTimestamp")
 		}
 	}
+	
+	// Remove Kubernetes-managed labels that are auto-added
+	if labels, ok, _ := unstructured.NestedStringMap(out.Object, "metadata", "labels"); ok {
+		delete(labels, "kubernetes.io/metadata.name")
+		if len(labels) == 0 {
+			unstructured.RemoveNestedField(out.Object, "metadata", "labels")
+		} else {
+			_ = unstructured.SetNestedStringMap(out.Object, labels, "metadata", "labels")
+		}
+	}
+	
+	// Normalize by kind-specific rules
+	kind := out.GetKind()
+	switch kind {
+	case "Deployment":
+		normalizeDeployment(out)
+	case "Service":
+		normalizeService(out)
+	case "Secret":
+		normalizeSecret(out)
+	case "Namespace":
+		normalizeNamespace(out)
+	}
+	
 	return out
+}
+
+// normalizeDeployment removes Kubernetes-added default fields from Deployments
+func normalizeDeployment(u *unstructured.Unstructured) {
+	// Remove spec-level defaults
+	unstructured.RemoveNestedField(u.Object, "spec", "progressDeadlineSeconds")
+	unstructured.RemoveNestedField(u.Object, "spec", "revisionHistoryLimit")
+	unstructured.RemoveNestedField(u.Object, "spec", "strategy")
+	
+	// Remove pod template defaults
+	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "dnsPolicy")
+	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "restartPolicy")
+	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "schedulerName")
+	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "terminationGracePeriodSeconds")
+	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "serviceAccount")
+	
+	// Remove container defaults
+	if containers, ok, _ := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "containers"); ok {
+		for i, c := range containers {
+			if container, ok := c.(map[string]interface{}); ok {
+				delete(container, "imagePullPolicy")
+				delete(container, "terminationMessagePath")
+				delete(container, "terminationMessagePolicy")
+				
+				// Normalize probes - remove default fields
+				if liveness, ok := container["livenessProbe"].(map[string]interface{}); ok {
+					delete(liveness, "failureThreshold")
+					delete(liveness, "successThreshold")
+					delete(liveness, "timeoutSeconds")
+					if httpGet, ok := liveness["httpGet"].(map[string]interface{}); ok {
+						delete(httpGet, "scheme")
+					}
+				}
+				if readiness, ok := container["readinessProbe"].(map[string]interface{}); ok {
+					delete(readiness, "failureThreshold")
+					delete(readiness, "successThreshold")
+					delete(readiness, "timeoutSeconds")
+					if httpGet, ok := readiness["httpGet"].(map[string]interface{}); ok {
+						delete(httpGet, "scheme")
+					}
+				}
+				
+				// Normalize ports - remove protocol if it's TCP (default)
+				if ports, ok := container["ports"].([]interface{}); ok {
+					for _, p := range ports {
+						if port, ok := p.(map[string]interface{}); ok {
+							if proto, ok := port["protocol"].(string); ok && proto == "TCP" {
+								delete(port, "protocol")
+							}
+						}
+					}
+				}
+				
+				containers[i] = container
+			}
+		}
+		_ = unstructured.SetNestedSlice(u.Object, containers, "spec", "template", "spec", "containers")
+	}
+	
+	// Normalize volumes - remove defaultMode if it's 420 (default)
+	if volumes, ok, _ := unstructured.NestedSlice(u.Object, "spec", "template", "spec", "volumes"); ok {
+		for i, v := range volumes {
+			if volume, ok := v.(map[string]interface{}); ok {
+				if cm, ok := volume["configMap"].(map[string]interface{}); ok {
+					if mode, ok := cm["defaultMode"].(int64); ok && mode == 420 {
+						delete(cm, "defaultMode")
+					}
+				}
+				if secret, ok := volume["secret"].(map[string]interface{}); ok {
+					if mode, ok := secret["defaultMode"].(int64); ok && mode == 420 {
+						delete(secret, "defaultMode")
+					}
+				}
+				volumes[i] = volume
+			}
+		}
+		_ = unstructured.SetNestedSlice(u.Object, volumes, "spec", "template", "spec", "volumes")
+	}
+}
+
+// normalizeService removes Kubernetes-added default fields from Services
+func normalizeService(u *unstructured.Unstructured) {
+	unstructured.RemoveNestedField(u.Object, "spec", "clusterIP")
+	unstructured.RemoveNestedField(u.Object, "spec", "clusterIPs")
+	unstructured.RemoveNestedField(u.Object, "spec", "internalTrafficPolicy")
+	unstructured.RemoveNestedField(u.Object, "spec", "ipFamilies")
+	unstructured.RemoveNestedField(u.Object, "spec", "ipFamilyPolicy")
+	unstructured.RemoveNestedField(u.Object, "spec", "sessionAffinity")
+	
+	// Normalize ports - remove protocol if it's TCP (default)
+	if ports, ok, _ := unstructured.NestedSlice(u.Object, "spec", "ports"); ok {
+		for i, p := range ports {
+			if port, ok := p.(map[string]interface{}); ok {
+				if proto, ok := port["protocol"].(string); ok && proto == "TCP" {
+					delete(port, "protocol")
+				}
+				ports[i] = port
+			}
+		}
+		_ = unstructured.SetNestedSlice(u.Object, ports, "spec", "ports")
+	}
+}
+
+// normalizeSecret handles Secret normalization, converting data to stringData for comparison
+func normalizeSecret(u *unstructured.Unstructured) {
+	// If the secret has 'data' (base64), decode it to stringData for comparison
+	// This allows comparing secrets defined with stringData in manifests
+	if data, ok, _ := unstructured.NestedStringMap(u.Object, "data"); ok && len(data) > 0 {
+		// Check if stringData already exists
+		if stringData, hasStringData, _ := unstructured.NestedStringMap(u.Object, "stringData"); !hasStringData || len(stringData) == 0 {
+			// Convert base64 data to stringData for normalized comparison
+			stringData := make(map[string]string)
+			for k, v := range data {
+				// Decode base64
+				decoded, err := base64.StdEncoding.DecodeString(v)
+				if err == nil {
+					stringData[k] = string(decoded)
+				} else {
+					// If decode fails, keep original
+					stringData[k] = v
+				}
+			}
+			// Remove data field and add stringData
+			unstructured.RemoveNestedField(u.Object, "data")
+			_ = unstructured.SetNestedStringMap(u.Object, stringData, "stringData")
+		}
+	}
+}
+
+// normalizeNamespace removes Kubernetes-added fields from Namespaces
+func normalizeNamespace(u *unstructured.Unstructured) {
+	// Remove the auto-added finalizers
+	unstructured.RemoveNestedField(u.Object, "spec", "finalizers")
+	// If spec is now empty, remove it entirely
+	if spec, ok := u.Object["spec"].(map[string]interface{}); ok && len(spec) == 0 {
+		delete(u.Object, "spec")
+	}
 }
 
 func structuralEqual(a, b map[string]any) bool {

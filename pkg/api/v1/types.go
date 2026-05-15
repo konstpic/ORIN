@@ -94,6 +94,7 @@ type AppStatus struct {
 
 // SyncOperationProgress describes the in-flight sync apply job.
 type SyncOperationProgress struct {
+	ID      string `json:"id"`
 	Status  string `json:"status"` // Pending | Running
 	Message string `json:"message,omitempty"`
 }

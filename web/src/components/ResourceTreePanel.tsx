@@ -26,6 +26,7 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
   const [groupOtherKinds, setGroupOtherKinds] = useState(true);
   const [expandedReplicaSetUids, setExpandedReplicaSetUids] = useState<Set<string>>(() => new Set());
   const [expandedGroupUids, setExpandedGroupUids] = useState<Set<string>>(() => new Set());
+  const [expandedListGroupUids, setExpandedListGroupUids] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<ResourceNode | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -136,9 +137,10 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             appName: app.name,
             appHealth: app.status.health,
             appSync: app.status.sync,
+            expandedGroupUids: expandedListGroupUids,
           })
         : [],
-    [filteredNodes, app.name, app.status.health, app.status.sync],
+    [filteredNodes, app.name, app.status.health, app.status.sync, expandedListGroupUids],
   );
 
   const expandReplicaSetOnMap = useCallback((rsUid: string | undefined) => {
@@ -159,6 +161,18 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       return next;
     });
     setMode("topology");
+  }, []);
+
+  const toggleListGroup = useCallback((groupUid: string) => {
+    setExpandedListGroupUids((prev) => {
+      const next = new Set(prev);
+      if (next.has(groupUid)) {
+        next.delete(groupUid);
+      } else {
+        next.add(groupUid);
+      }
+      return next;
+    });
   }, []);
 
   if (isLoading) return <div className="text-sm text-[var(--color-text-muted)]">Loading resources…</div>;

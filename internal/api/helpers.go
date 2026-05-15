@@ -144,6 +144,7 @@ func enrichAppStatusWithSyncOps(st *apiv1.AppStatus, ops []*domain.SyncOperation
 	}
 	if active != nil {
 		st.SyncOperation = &apiv1.SyncOperationProgress{
+			ID:      active.ID,
 			Status:  string(active.Status),
 			Message: active.Message,
 		}
