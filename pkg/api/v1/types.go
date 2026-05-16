@@ -433,3 +433,86 @@ type UpdateSyncHookRequest struct {
 	YAML    string `json:"yaml"`
 	Enabled bool   `json:"enabled"`
 }
+
+// Role is the public representation of an RBAC role.
+type Role struct {
+	ID          string   `json:"id"`
+	Name        string   `json:"name"`
+	DisplayName string   `json:"displayName"`
+	Description string   `json:"description,omitempty"`
+	Permissions []string `json:"permissions"`
+	BuiltIn     bool     `json:"builtIn"`
+	CreatedAt   string   `json:"createdAt"`
+	UpdatedAt   string   `json:"updatedAt"`
+}
+
+// CreateRoleRequest is the body for creating a role.
+type CreateRoleRequest struct {
+	Name        string   `json:"name"`
+	DisplayName string   `json:"displayName"`
+	Description string   `json:"description,omitempty"`
+	Permissions []string `json:"permissions"`
+}
+
+// UpdateRoleRequest is the body for updating a role.
+type UpdateRoleRequest struct {
+	DisplayName string   `json:"displayName"`
+	Description string   `json:"description,omitempty"`
+	Permissions []string `json:"permissions"`
+}
+
+// RoleBinding is the public representation of a user-role mapping.
+type RoleBinding struct {
+	ID        string   `json:"id"`
+	UserID    string   `json:"userId"`
+	UserEmail string   `json:"userEmail,omitempty"`
+	RoleID    string   `json:"roleId"`
+	RoleName  string   `json:"roleName,omitempty"`
+	Projects  []string `json:"projects"`
+	CreatedAt string   `json:"createdAt"`
+}
+
+// CreateRoleBindingRequest is the body for creating a role binding.
+type CreateRoleBindingRequest struct {
+	UserID   string   `json:"userId"`
+	RoleID   string   `json:"roleId"`
+	Projects []string `json:"projects,omitempty"`
+}
+
+// UpdateRoleBindingRequest is the body for updating a role binding.
+type UpdateRoleBindingRequest struct {
+	RoleID   string   `json:"roleId"`
+	Projects []string `json:"projects,omitempty"`
+}
+
+// PermissionInfo describes a single permission for the UI.
+type PermissionInfo struct {
+	ID          string `json:"id"`
+	Category    string `json:"category"`
+	Description string `json:"description"`
+}
+
+// UserInfo is the public view of a user with their roles.
+type UserInfo struct {
+	ID          string         `json:"id"`
+	Email       string         `json:"email"`
+	DisplayName string         `json:"displayName,omitempty"`
+	Role        string         `json:"role"`
+	Active      bool           `json:"active"`
+	Bindings    []RoleBinding  `json:"bindings,omitempty"`
+}
+
+// CreateUserRequest is the body for creating a user.
+type CreateUserRequest struct {
+	Email       string `json:"email"`
+	DisplayName string `json:"displayName,omitempty"`
+	Role        string `json:"role"`
+	Token       string `json:"token"` // plaintext, will be hashed
+}
+
+// UpdateUserRequest is the body for updating a user.
+type UpdateUserRequest struct {
+	DisplayName string `json:"displayName,omitempty"`
+	Active      *bool  `json:"active,omitempty"`
+	Token       string `json:"token,omitempty"` // set user token (plaintext, will be hashed)
+}

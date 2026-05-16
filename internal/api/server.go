@@ -37,6 +37,7 @@ type ServerOptions struct {
 	Hub        *ws.Hub
 	Controller *controller.Controller
 	Notifier   *notify.Dispatcher
+	TokenAuth  *auth.TokenAuth
 }
 
 // Server bundles options + handlers for the HTTP gateway.
@@ -70,7 +71,12 @@ func (s *Server) Handler() http.Handler {
 
 	// Authenticated.
 	r.Group(func(r chi.Router) {
-		r.Use(auth.StaticToken(s.opts.Config.AdminToken))
+		// Use TokenAuth if available, fall back to StaticToken for backward compat
+		if s.opts.TokenAuth != nil {
+			r.Use(s.opts.TokenAuth.Middleware())
+		} else {
+			r.Use(auth.StaticToken(s.opts.Config.AdminToken))
+		}
 		r.Use(prometheusHTTPMiddleware)
 		r.Get("/api/v1/auth/userinfo", s.handleUserInfo)
 
@@ -128,7 +134,33 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/api/v1/projects", s.createProject)
 		r.Put("/api/v1/projects/{name}", s.updateProject)
 		r.Get("/api/v1/audit-log", s.exportAuditLog)
+
+		// Global notifications (not app-specific)
+		r.Get("/api/v1/notifications", s.listGlobalNotificationConfigs)
+		r.Post("/api/v1/notifications", s.createGlobalNotificationConfig)
+		r.Put("/api/v1/notifications/{configId}", s.updateGlobalNotificationConfig)
+		r.Delete("/api/v1/notifications/{configId}", s.deleteGlobalNotificationConfig)
 		r.Post("/api/v1/notifications/test", s.postNotificationTest)
+
+		// RBAC management
+		r.Get("/api/v1/rbac/roles", s.listRoles)
+		r.Post("/api/v1/rbac/roles", s.createRole)
+		r.Get("/api/v1/rbac/roles/{id}", s.getRole)
+		r.Put("/api/v1/rbac/roles/{id}", s.updateRole)
+		r.Delete("/api/v1/rbac/roles/{id}", s.deleteRole)
+
+		r.Get("/api/v1/rbac/bindings", s.listRoleBindings)
+		r.Post("/api/v1/rbac/bindings", s.createRoleBinding)
+		r.Put("/api/v1/rbac/bindings/{id}", s.updateRoleBinding)
+		r.Delete("/api/v1/rbac/bindings/{id}", s.deleteRoleBinding)
+
+		r.Get("/api/v1/rbac/permissions", s.listPermissions)
+
+		r.Get("/api/v1/users", s.listUsers)
+		r.Post("/api/v1/users", s.createUser)
+		r.Get("/api/v1/users/{id}", s.getUser)
+		r.Put("/api/v1/users/{id}", s.updateUser)
+		r.Delete("/api/v1/users/{id}", s.deleteUser)
 	})
 
 	// Static frontend assets (optional) - SPA fallback to index.html

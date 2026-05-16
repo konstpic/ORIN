@@ -18,6 +18,8 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
 	"github.com/k8s-ui/k8s-ui/internal/manifest"
 	"github.com/k8s-ui/k8s-ui/internal/project"
+	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
 	"github.com/k8s-ui/k8s-ui/internal/store"
 	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
@@ -62,6 +64,9 @@ func (s *Server) getApplication(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createApplication(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermAppCreate) {
+		return
+	}
 	var req apiv1.CreateApplicationRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
@@ -242,6 +247,9 @@ func (s *Server) updateApplication(w http.ResponseWriter, r *http.Request) {
 	if !requireProjectAccess(w, r, app.Project) {
 		return
 	}
+	if !rbacenforce.CheckPermission(w, r, rbac.PermAppUpdate) {
+		return
+	}
 	var req apiv1.UpdateApplicationRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
@@ -321,6 +329,9 @@ func (s *Server) deleteApplication(w http.ResponseWriter, r *http.Request) {
 	if !requireProjectAccess(w, r, app.Project) {
 		return
 	}
+	if !rbacenforce.CheckPermission(w, r, rbac.PermAppDelete) {
+		return
+	}
 	if err := s.opts.Store.Applications.Delete(r.Context(), app.ID); err != nil {
 		writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
 		return
@@ -336,6 +347,9 @@ func (s *Server) syncApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !requireProjectAccess(w, r, app.Project) {
+		return
+	}
+	if !rbacenforce.CheckPermission(w, r, rbac.PermAppSync) {
 		return
 	}
 	if s.opts.Config.SyncDeniedAt(time.Now()) {
@@ -588,6 +602,9 @@ func toAPISyncResults(in []domain.SyncResourceResult) []apiv1.SyncResourceResult
 // deleteLiveResource deletes a live cluster resource identified by query params:
 // group, version, kind, namespace, name.
 func (s *Server) deleteLiveResource(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermLiveDelete) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	if _, ok := s.appByNameAuthorized(w, r, name); !ok {
 		return
@@ -614,6 +631,9 @@ func (s *Server) deleteLiveResource(w http.ResponseWriter, r *http.Request) {
 // syncLiveResource triggers a targeted sync for a single resource identified by
 // query params: group, version, kind, namespace, name.
 func (s *Server) syncLiveResource(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermLiveApply) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	app, ok := s.appByNameAuthorized(w, r, name)
 	if !ok {
@@ -656,6 +676,9 @@ func (s *Server) syncLiveResource(w http.ResponseWriter, r *http.Request) {
 // This implements the "live manifest edit" feature: the user edits desired YAML in
 // the browser and the change is applied directly to Kubernetes (not to git).
 func (s *Server) applyLiveResource(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermLiveApply) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	if _, ok := s.appByNameAuthorized(w, r, name); !ok {
 		return
@@ -695,6 +718,9 @@ func (s *Server) applyLiveResource(w http.ResponseWriter, r *http.Request) {
 // restartLiveResource performs a rolling restart for a Deployment or a safe
 // replace for a ReplicaSet (finds parent Deployment, restarts it, then deletes old RS).
 func (s *Server) restartLiveResource(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermLiveRestart) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	app, ok := s.appByNameAuthorized(w, r, name)
 	if !ok {

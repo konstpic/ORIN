@@ -35,6 +35,8 @@ type Store struct {
 	Audit          *Auditor
 	Notifications  *NotificationStore
 	SyncHooks      *SyncHookStore
+	Roles          *RoleStore
+	RoleBindings   *RoleBindingStore
 }
 
 // Connect opens a pool and constructs the typed repositories.
@@ -57,6 +59,8 @@ func Connect(ctx context.Context, url string) (*Store, error) {
 		Audit:         &Auditor{pool: pool},
 		Notifications: NewNotificationStore(pool),
 		SyncHooks:     NewSyncHookStore(pool),
+		Roles:         NewRoleStore(pool),
+		RoleBindings:  NewRoleBindingStore(pool),
 	}, nil
 }
 

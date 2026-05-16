@@ -345,23 +345,17 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             pendingAction.action === "restart" && pendingAction.node.kind === "Deployment"
               ? `Restart Deployment "${pendingAction.node.name}"?`
               : pendingAction.action === "restart"
-                ? `Restart pod "${pendingAction.node.name}"?`
-                : pendingAction.node.kind === "ReplicaSet"
-                  ? `Replace ReplicaSet "${pendingAction.node.name}"?`
-                  : `Delete ${pendingAction.node.kind} "${pendingAction.node.name}"?`
+                ? `Restart ${pendingAction.node.kind} "${pendingAction.node.name}"?`
+                : `Delete ${pendingAction.node.kind} "${pendingAction.node.name}"?`
           }
           description={
             pendingAction.action === "restart" && pendingAction.node.kind === "Deployment"
               ? "A new ReplicaSet will be created and pods will be rolled over with zero downtime."
               : pendingAction.action === "restart"
                 ? "The pod will be deleted and Kubernetes will restart it via its controller."
-                : pendingAction.node.kind === "ReplicaSet"
-                  ? "A new ReplicaSet will be created first, then the old one will be removed. Zero-downtime replacement."
-                  : "This will delete the live resource from the cluster. It may be re-created on the next sync."
+                : "This will delete the live resource from the cluster. It may be re-created on the next sync."
           }
-          confirmLabel={
-            pendingAction.action === "restart" || pendingAction.node.kind === "ReplicaSet" ? "Restart" : "Delete"
-          }
+          confirmLabel={pendingAction.action === "restart" ? "Restart" : "Delete"}
           danger
           onConfirm={confirmAction}
           onCancel={() => setPendingAction(null)}

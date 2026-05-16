@@ -6,6 +6,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
 	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
@@ -30,6 +32,9 @@ func (s *Server) listRepositories(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createRepository(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermRepoCreate) {
+		return
+	}
 	var req apiv1.CreateRepositoryRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
@@ -67,6 +72,9 @@ func (s *Server) createRepository(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) deleteRepository(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermRepoDelete) {
+		return
+	}
 	id := chi.URLParam(r, "id")
 	if err := s.opts.Store.Repositories.Delete(r.Context(), id); err != nil {
 		notFoundOr500(w, err)

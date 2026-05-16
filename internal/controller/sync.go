@@ -207,12 +207,20 @@ func (c *Controller) finishOp(ctx context.Context, app *domain.Application, op *
 }
 
 func (c *Controller) dispatchNotification(ctx context.Context, app *domain.Application, event domain.NotificationEventType, p notify.Payload) {
+	// App-specific configs
 	configs, err := c.store.Notifications.ListEnabledForEvent(ctx, app.ID, event)
 	if err != nil {
 		slog.Debug("notify: list configs", "app", app.Name, "err", err)
-		return
 	}
 	for _, cfg := range configs {
+		c.notifier.Send(ctx, cfg, p)
+	}
+	// Global configs (app_id = '*')
+	globalConfigs, err := c.store.Notifications.ListEnabledForEvent(ctx, "*", event)
+	if err != nil {
+		slog.Debug("notify: list global configs", "err", err)
+	}
+	for _, cfg := range globalConfigs {
 		c.notifier.Send(ctx, cfg, p)
 	}
 }

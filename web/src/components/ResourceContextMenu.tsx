@@ -40,8 +40,11 @@ export function actionsForKind(kind: string): ResourceAction[] {
   if (kind === "Pod") {
     return ["restart", "delete", "sync"];
   }
-  if (kind === "Deployment" || kind === "ReplicaSet") {
+  if (kind === "Deployment") {
     return ["restart", "sync", "delete"];
+  }
+  if (kind === "ReplicaSet") {
+    return ["sync", "delete"];
   }
   // Synthetic / UI-only nodes have no live cluster operations
   if (kind === "Application" || kind === "PodGroup" || kind === "KindGroup") {

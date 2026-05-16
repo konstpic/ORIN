@@ -15,6 +15,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
+	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
 	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
 
@@ -288,6 +290,9 @@ func (fw *flushWriter) Write(p []byte) (int, error) {
 
 // getApplicationPodShell detects and returns the available shell in the pod.
 func (s *Server) getApplicationPodShell(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermPodShell) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	podName := chi.URLParam(r, "pod")
 	app, ok := s.appByNameAuthorized(w, r, name)
@@ -329,6 +334,9 @@ func (s *Server) getApplicationPodShell(w http.ResponseWriter, r *http.Request) 
 // Client → server: TextMessage JSON {"resize":{"w":120,"h":40}} or BinaryMessage = raw stdin bytes.
 // Server → client: BinaryMessage [0x01|0x02][payload] for stdout|stderr.
 func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermPodExec) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	podName := chi.URLParam(r, "pod")
 	app, ok := s.appByNameAuthorized(w, r, name)
@@ -460,6 +468,9 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 // deleteApplicationPod deletes (kills) the pod. Kubernetes will restart it via
 // the owning controller (Deployment, StatefulSet, etc.).
 func (s *Server) deleteApplicationPod(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermPodDelete) {
+		return
+	}
 	name := chi.URLParam(r, "name")
 	podName := chi.URLParam(r, "pod")
 	app, ok := s.appByNameAuthorized(w, r, name)

@@ -227,3 +227,77 @@ export interface WSMessage<T = unknown> {
   type: string;
   payload?: T;
 }
+
+// --- RBAC types ---
+
+export interface Role {
+  id: string;
+  name: string;
+  displayName: string;
+  description?: string;
+  permissions: string[];
+  builtIn: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateRoleRequest {
+  name: string;
+  displayName: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface UpdateRoleRequest {
+  displayName: string;
+  description?: string;
+  permissions: string[];
+}
+
+export interface RoleBinding {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  roleId: string;
+  roleName?: string;
+  projects: string[];
+  createdAt: string;
+}
+
+export interface CreateRoleBindingRequest {
+  userId: string;
+  roleId: string;
+  projects?: string[];
+}
+
+export interface UpdateRoleBindingRequest {
+  roleId: string;
+  projects?: string[];
+}
+
+export interface PermissionInfo {
+  id: string;
+  category: string;
+  description: string;
+}
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  displayName?: string;
+  role: string;
+  active: boolean;
+}
+
+export interface CreateUserRequest {
+  email: string;
+  displayName?: string;
+  role: string;
+  token: string;
+}
+
+export interface UpdateUserRequest {
+  displayName?: string;
+  active?: boolean;
+  token?: string;
+}

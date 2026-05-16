@@ -257,6 +257,19 @@ func normalizeDeployment(u *unstructured.Unstructured) {
 	unstructured.RemoveNestedField(u.Object, "spec", "revisionHistoryLimit")
 	unstructured.RemoveNestedField(u.Object, "spec", "strategy")
 
+	// Remove restartedAt annotation — set by our rolling restart but not
+	// present in git manifests, so it would otherwise cause perpetual OutOfSync.
+	if annots, ok, _ := unstructured.NestedStringMap(u.Object, "spec", "template", "metadata", "annotations"); ok {
+		if _, exists := annots["kubectl.kubernetes.io/restartedAt"]; exists {
+			delete(annots, "kubectl.kubernetes.io/restartedAt")
+			if len(annots) == 0 {
+				unstructured.RemoveNestedField(u.Object, "spec", "template", "metadata", "annotations")
+			} else {
+				_ = unstructured.SetNestedStringMap(u.Object, annots, "spec", "template", "metadata", "annotations")
+			}
+		}
+	}
+
 	// Remove empty pod-level securityContext — K8s injects this on all pods
 	if sc, ok, _ := unstructured.NestedMap(u.Object, "spec", "template", "spec", "securityContext"); ok && len(sc) == 0 {
 		unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "securityContext")

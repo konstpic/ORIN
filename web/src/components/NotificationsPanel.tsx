@@ -34,6 +34,8 @@ const ALL_EVENTS = [
 
 export function NotificationsPanel({ appName }: { appName: string }) {
   const qc = useQueryClient();
+  const isGlobal = appName === "__global__";
+  const basePath = isGlobal ? "/api/v1/notifications" : `/api/v1/applications/${encodeURIComponent(appName)}/notifications`;
   const [creating, setCreating] = useState(false);
   const [testingUrl, setTestingUrl] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -42,12 +44,11 @@ export function NotificationsPanel({ appName }: { appName: string }) {
 
   const { data: configs, isLoading, error } = useQuery<NotificationConfig[]>({
     queryKey: ["notifications", appName],
-    queryFn: () => api.get(`/api/v1/applications/${encodeURIComponent(appName)}/notifications`),
+    queryFn: () => api.get(basePath),
   });
 
   const createMut = useMutation({
-    mutationFn: (body: typeof form) =>
-      api.post(`/api/v1/applications/${encodeURIComponent(appName)}/notifications`, body),
+    mutationFn: (body: typeof form) => api.post(basePath, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["notifications", appName] });
       setCreating(false);
@@ -57,7 +58,7 @@ export function NotificationsPanel({ appName }: { appName: string }) {
 
   const updateMut = useMutation({
     mutationFn: ({ id, body }: { id: string; body: typeof form }) =>
-      api.put(`/api/v1/applications/${encodeURIComponent(appName)}/notifications/${id}`, body),
+      api.put(`${basePath}/${id}`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["notifications", appName] });
       setEditId(null);
@@ -65,8 +66,7 @@ export function NotificationsPanel({ appName }: { appName: string }) {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) =>
-      api.del(`/api/v1/applications/${encodeURIComponent(appName)}/notifications/${id}`),
+    mutationFn: (id: string) => api.del(`${basePath}/${id}`),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["notifications", appName] });
       if (editId) setEditId(null);
@@ -88,15 +88,16 @@ export function NotificationsPanel({ appName }: { appName: string }) {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-[var(--color-text)] flex items-center gap-2">
             <Bell className="size-4" strokeWidth={2} />
-            Notifications
+            {isGlobal ? "Global Notifications" : "Notifications"}
           </h3>
           <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-            Webhook alerts on sync and health events
+            {isGlobal
+              ? "Webhook alerts for all applications across the platform"
+              : "Webhook alerts on sync and health events"}
           </p>
         </div>
         {!creating && (
@@ -111,7 +112,6 @@ export function NotificationsPanel({ appName }: { appName: string }) {
         )}
       </div>
 
-      {/* Test result */}
       {testResult && (
         <div className={`rounded-lg border px-3 py-2 text-xs flex items-center gap-2 ${
           testResult.ok
@@ -123,7 +123,6 @@ export function NotificationsPanel({ appName }: { appName: string }) {
         </div>
       )}
 
-      {/* Loading */}
       {isLoading && (
         <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] animate-pulse">
           <Loader2 className="size-3.5 animate-spin" />
@@ -132,14 +131,14 @@ export function NotificationsPanel({ appName }: { appName: string }) {
       )}
       {error && <div className="text-xs text-red-400">{(error as Error)?.message}</div>}
 
-      {/* Config list */}
       {!isLoading && configs && (configs as NotificationConfig[]).length === 0 && !creating && (
         <div className="text-xs text-[var(--color-text-muted)]">
-          No notification webhooks configured. Add one to receive alerts on sync and health events.
+          {isGlobal
+            ? "No global notification webhooks configured."
+            : "No notification webhooks configured. Add one to receive alerts on sync and health events."}
         </div>
       )}
 
-      {/* Create form */}
       {creating && (
         <ConfigForm
           form={form}
@@ -152,7 +151,6 @@ export function NotificationsPanel({ appName }: { appName: string }) {
         />
       )}
 
-      {/* Existing configs */}
       {(configs as NotificationConfig[] | undefined)?.map((cfg) =>
         editId === cfg.id ? (
           <ConfigForm

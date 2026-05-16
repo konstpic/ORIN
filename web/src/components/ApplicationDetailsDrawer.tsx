@@ -234,7 +234,7 @@ export function ApplicationDetailsDrawer({
         )}
 
         <div className="shrink-0 flex border-b border-[var(--color-border)] px-5 pt-3 gap-1">
-          {(["details", ...(usesHelm ? (["helmValues"] as const) : [])] as AppTab[]).map((id) => (
+          {(["details", ...(usesHelm ? (["helmValues"] as const) : []), "notifications", "hooks"] as AppTab[]).map((id) => (
             <button
               key={id}
               type="button"

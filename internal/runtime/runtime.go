@@ -11,9 +11,11 @@ import (
 	"net/http"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/k8s-ui/k8s-ui/internal/api"
+	"github.com/k8s-ui/k8s-ui/internal/auth"
 	"github.com/k8s-ui/k8s-ui/internal/config"
 	"github.com/k8s-ui/k8s-ui/internal/controller"
 	"github.com/k8s-ui/k8s-ui/internal/crypto"
@@ -21,6 +23,7 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
 	"github.com/k8s-ui/k8s-ui/internal/notify"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
+	"github.com/k8s-ui/k8s-ui/internal/rbac"
 	"github.com/k8s-ui/k8s-ui/internal/store"
 	"github.com/k8s-ui/k8s-ui/internal/ws"
 )
@@ -32,6 +35,12 @@ func RunAPIServer(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 	defer deps.Close()
+
+	// Seed RBAC roles/users on every startup (idempotent)
+	if err := seedRBACRoles(ctx, deps, cfg); err != nil {
+		slog.Warn("RBAC seed failed", "error", err)
+	}
+
 	return runHTTPServer(ctx, cfg, deps)
 }
 
@@ -63,6 +72,11 @@ func RunAllInOne(ctx context.Context, cfg *config.Config) error {
 
 	if err := ensureBootstrap(ctx, deps, cfg); err != nil {
 		return err
+	}
+
+	// Seed RBAC roles/users on every startup (idempotent)
+	if err := seedRBACRoles(ctx, deps, cfg); err != nil {
+		slog.Warn("RBAC seed failed", "error", err)
 	}
 
 	g, gctx := errgroup.WithContext(ctx)
@@ -151,6 +165,7 @@ func buildDeps(ctx context.Context, cfg *config.Config) (*deps, error) {
 }
 
 func runHTTPServer(ctx context.Context, cfg *config.Config, d *deps) error {
+	tokenAuth := auth.NewTokenAuth(d.Store.Pool, cfg.AdminToken, 5*time.Minute)
 	handler := api.NewServer(api.ServerOptions{
 		Config:     cfg,
 		Store:      d.Store,
@@ -160,6 +175,7 @@ func runHTTPServer(ctx context.Context, cfg *config.Config, d *deps) error {
 		Hub:        d.Hub,
 		Controller: d.Controller,
 		Notifier:   d.Notifier,
+		TokenAuth:  tokenAuth,
 	}).Handler()
 
 	srv := &http.Server{
@@ -185,7 +201,8 @@ func runHTTPServer(ctx context.Context, cfg *config.Config, d *deps) error {
 	}
 }
 
-// ensureBootstrap creates the in-cluster Cluster row on first launch.
+// ensureBootstrap creates the in-cluster Cluster row on first launch and seeds
+// default RBAC roles.
 func ensureBootstrap(ctx context.Context, d *deps, cfg *config.Config) error {
 	if _, err := d.Store.Clusters.GetByName(ctx, "in-cluster"); err == nil {
 		return nil
@@ -199,5 +216,88 @@ func ensureBootstrap(ctx context.Context, d *deps, cfg *config.Config) error {
 	}
 	slog.Info("bootstrapping in-cluster row", "server", cl.ServerURL)
 	_ = cfg
-	return d.Store.Clusters.Upsert(ctx, cl)
+	if err := d.Store.Clusters.Upsert(ctx, cl); err != nil {
+		return err
+	}
+
+	// Seed default RBAC roles
+	return seedRBACRoles(ctx, d, cfg)
+}
+
+// seedRBACRoles creates the built-in admin, editor, and viewer roles if they
+// don't already exist, and binds the first admin user to the admin role.
+func seedRBACRoles(ctx context.Context, d *deps, cfg *config.Config) error {
+	for _, preset := range rbac.DefaultRolePresets() {
+		_, err := d.Store.Roles.GetByName(ctx, preset.Name)
+		if err == nil {
+			continue // already exists
+		}
+		if !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+
+		role := &rbac.Role{
+			ID:          "rbac-" + preset.Name,
+			Name:        preset.Name,
+			DisplayName: preset.DisplayName,
+			Description: preset.Description,
+			Permissions: preset.Permissions,
+			BuiltIn:     preset.BuiltIn,
+		}
+		if err := d.Store.Roles.Create(ctx, role); err != nil {
+			slog.Warn("failed to seed role", "role", preset.Name, "error", err)
+		}
+	}
+
+	// Ensure the admin user exists and is bound to the admin role
+	var userID string
+	var existingHash string
+	err := d.Store.Pool.QueryRow(ctx, `
+		SELECT id, COALESCE(token_hash, '') FROM users WHERE role = 'admin' AND active = true LIMIT 1
+	`).Scan(&userID, &existingHash)
+	if err != nil {
+		// Create a bootstrap admin user with the static admin token
+		userID = "user-admin-bootstrap"
+		tokenHash := hashTokenForSeed(cfg.AdminToken)
+		_, _ = d.Store.Pool.Exec(ctx, `
+			INSERT INTO users (id, email, display_name, role, token_hash, active)
+			VALUES ($1, 'admin@k8s-ui.local', 'Administrator', 'admin', $2, true)
+			ON CONFLICT (email) DO NOTHING
+		`, userID, tokenHash)
+	} else if existingHash == "" && cfg.AdminToken != "" {
+		// Admin user exists but has no token_hash — set it
+		tokenHash := hashTokenForSeed(cfg.AdminToken)
+		_, _ = d.Store.Pool.Exec(ctx, `UPDATE users SET token_hash = $1 WHERE id = $2`, tokenHash, userID)
+	}
+
+	// Check if admin already has a role binding
+	var bindingCount int
+	err = d.Store.Pool.QueryRow(ctx, `
+		SELECT COUNT(*) FROM role_bindings WHERE user_id = $1
+	`, userID).Scan(&bindingCount)
+	if err == nil && bindingCount == 0 {
+		adminRole, err := d.Store.Roles.GetByName(ctx, "admin")
+		if err == nil {
+			binding := &rbac.RoleBinding{
+				ID:       "binding-admin",
+				UserID:   userID,
+				RoleID:   adminRole.ID,
+				Projects: []string{"*"},
+			}
+			_ = d.Store.RoleBindings.Create(ctx, binding)
+		}
+	}
+
+	return nil
+}
+
+func hashTokenForSeed(token string) string {
+	if token == "" {
+		return ""
+	}
+	h, err := bcrypt.GenerateFromPassword([]byte(token), bcrypt.DefaultCost)
+	if err != nil {
+		return ""
+	}
+	return string(h)
 }

@@ -6,6 +6,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
 	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
 
@@ -23,6 +25,9 @@ func (s *Server) listProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) createProject(w http.ResponseWriter, r *http.Request) {
+	if !rbacenforce.CheckPermission(w, r, rbac.PermProjectCreate) {
+		return
+	}
 	var req apiv1.CreateProjectRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
@@ -49,6 +54,9 @@ func (s *Server) updateProject(w http.ResponseWriter, r *http.Request) {
 	pr, err := s.opts.Store.Projects.GetByName(r.Context(), name)
 	if err != nil {
 		notFoundOr500(w, err)
+		return
+	}
+	if !rbacenforce.CheckPermission(w, r, rbac.PermProjectUpdate) {
 		return
 	}
 	var req apiv1.UpdateProjectRequest

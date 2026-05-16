@@ -13,6 +13,16 @@ import type {
   ResourceTree,
   SyncOperation,
   UpdateApplicationRequest,
+  Role,
+  RoleBinding,
+  PermissionInfo,
+  UserInfo,
+  CreateRoleRequest,
+  UpdateRoleRequest,
+  CreateRoleBindingRequest,
+  UpdateRoleBindingRequest,
+  CreateUserRequest,
+  UpdateUserRequest,
 } from "./types";
 
 export class ApiError extends Error {
@@ -260,4 +270,51 @@ export const api = {
   put: <T>(path: string, body: unknown) =>
     request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
   del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+
+  // RBAC
+  listRoles: () => request<Role[]>("/api/v1/rbac/roles"),
+  getRole: (id: string) => request<Role>(`/api/v1/rbac/roles/${id}`),
+  createRole: (req: CreateRoleRequest) =>
+    request<Role>("/api/v1/rbac/roles", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  updateRole: (id: string, req: UpdateRoleRequest) =>
+    request<Role>(`/api/v1/rbac/roles/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(req),
+    }),
+  deleteRole: (id: string) =>
+    request<void>(`/api/v1/rbac/roles/${id}`, { method: "DELETE" }),
+
+  listRoleBindings: () => request<RoleBinding[]>("/api/v1/rbac/bindings"),
+  createRoleBinding: (req: CreateRoleBindingRequest) =>
+    request<RoleBinding>("/api/v1/rbac/bindings", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  updateRoleBinding: (id: string, req: UpdateRoleBindingRequest) =>
+    request<RoleBinding>(`/api/v1/rbac/bindings/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(req),
+    }),
+  deleteRoleBinding: (id: string) =>
+    request<void>(`/api/v1/rbac/bindings/${id}`, { method: "DELETE" }),
+
+  listPermissions: () => request<PermissionInfo[]>("/api/v1/rbac/permissions"),
+
+  listUsers: () => request<UserInfo[]>("/api/v1/users"),
+  getUser: (id: string) => request<UserInfo>(`/api/v1/users/${id}`),
+  createUser: (req: CreateUserRequest) =>
+    request<UserInfo>("/api/v1/users", {
+      method: "POST",
+      body: JSON.stringify(req),
+    }),
+  updateUser: (id: string, req: UpdateUserRequest) =>
+    request<UserInfo>(`/api/v1/users/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(req),
+    }),
+  deleteUser: (id: string) =>
+    request<void>(`/api/v1/users/${id}`, { method: "DELETE" }),
 };
