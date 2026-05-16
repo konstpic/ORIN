@@ -687,6 +687,75 @@ func (s *Server) applyLiveResource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "apply_failed", err.Error())
 		return
 	}
+	s.opts.Controller.MarkManualApply(name)
 	s.opts.Controller.EnqueueStatus(name)
 	writeJSON(w, http.StatusOK, result.Object)
+}
+
+// restartLiveResource performs a rolling restart for a Deployment or a safe
+// replace for a ReplicaSet (finds parent Deployment, restarts it, then deletes old RS).
+func (s *Server) restartLiveResource(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, name)
+	if !ok {
+		return
+	}
+	q := r.URL.Query()
+	kind := q.Get("kind")
+	resName := q.Get("name")
+	namespace := q.Get("namespace")
+	if namespace == "" {
+		namespace = app.DestNamespace
+	}
+	if kind == "" || resName == "" {
+		writeError(w, http.StatusBadRequest, "missing_params", "kind and name query params are required")
+		return
+	}
+
+	switch kind {
+	case "Deployment":
+		if err := s.opts.Cluster.RestartDeployment(r.Context(), namespace, resName); err != nil {
+			writeError(w, http.StatusBadGateway, "restart_failed", err.Error())
+			return
+		}
+	case "ReplicaSet":
+		// Find the parent Deployment and restart it; then delete the old ReplicaSet.
+		refs, err := s.opts.Cluster.GetOwnerReferences(r.Context(), schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}, namespace, resName)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "get_owners_failed", err.Error())
+			return
+		}
+		// If owned by a Deployment, restart the Deployment.
+		for _, ref := range refs {
+			if ref.Kind == "Deployment" && ref.APIVersion == "apps/v1" {
+				if err := s.opts.Cluster.RestartDeployment(r.Context(), namespace, ref.Name); err != nil {
+					writeError(w, http.StatusBadGateway, "restart_failed", err.Error())
+					return
+				}
+				s.opts.Controller.MarkManualApply(name)
+				s.opts.Controller.EnqueueStatus(name)
+				writeJSON(w, http.StatusOK, map[string]string{
+					"message": "Deployment " + ref.Name + " restarted. Old ReplicaSet will be cleaned up.",
+					"action":  "deployment_restart",
+				})
+				return
+			}
+		}
+		// Standalone ReplicaSet — just delete it (controller will recreate if needed).
+		gvk := schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "ReplicaSet"}
+		if err := s.opts.Cluster.Delete(r.Context(), gvk, namespace, resName); err != nil {
+			writeError(w, http.StatusBadGateway, "delete_failed", err.Error())
+			return
+		}
+		s.opts.Controller.EnqueueStatus(name)
+		w.WriteHeader(http.StatusNoContent)
+		return
+	default:
+		writeError(w, http.StatusBadRequest, "unsupported_kind", "restart is only supported for Deployment and ReplicaSet")
+		return
+	}
+
+	s.opts.Controller.MarkManualApply(name)
+	s.opts.Controller.EnqueueStatus(name)
+	writeJSON(w, http.StatusOK, map[string]string{"message": "Restart initiated for " + kind + " " + resName})
 }

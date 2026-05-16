@@ -9,6 +9,47 @@ import { iconForKind, kindIconTileClass } from "../k8s/kindMeta";
 import { stripManagedFieldsYaml } from "../utils/yamlManagedFields";
 import { podTileChar, podTileClass, podTileTitle } from "../k8s/podTile";
 
+function resourceEventRowClass(ev: PodEvent): string {
+  if (ev.type === "Warning") return "bg-amber-500/5 hover:bg-amber-500/10";
+  return "hover:bg-[var(--color-accent-muted)]/15";
+}
+
+function getResourceCategoryBadgeColor(category?: string): string {
+  if (!category) return "bg-gray-500/20 text-gray-300";
+  if (category.includes("Crash") || category.includes("Failed") || category.includes("Error"))
+    return "bg-red-500/20 text-red-300";
+  if (category.includes("Probe"))
+    return "bg-orange-500/20 text-orange-300";
+  if (category.includes("ImagePull"))
+    return "bg-blue-500/20 text-blue-300";
+  if (category.includes("Success") || category.includes("Pulled") || category.includes("Started") || category.includes("Mount"))
+    return "bg-green-500/20 text-green-300";
+  if (category.includes("Starting") || category.includes("Created"))
+    return "bg-cyan-500/20 text-cyan-300";
+  if (category.includes("Stopping"))
+    return "bg-purple-500/20 text-purple-300";
+  return "bg-gray-500/20 text-gray-300";
+}
+
+function formatResourceEventTime(t: string | null | undefined): string {
+  if (!t) return "—";
+  try {
+    return new Date(t).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" });
+  } catch {
+    return t;
+  }
+}
+
+function deriveEventCategory(reason: string): string {
+  if (reason.includes("BackOff") || reason.includes("CrashLoop")) return "ContainerCrash";
+  if (reason.includes("Pulling") || reason.includes("Pulled")) return "ImagePull";
+  if (reason.includes("Created") || reason.includes("Started")) return "ContainerStarting";
+  if (reason.includes("Failed")) return "OperationFailed";
+  if (reason.includes("Killing") || reason.includes("Stopping")) return "ContainerStopping";
+  if (reason.includes("Scaling") || reason.includes("Successful")) return "Scaling";
+  return reason;
+}
+
 type TabId = "summary" | "manifest" | "diff" | "events" | "logs";
 
 const TAB_LABEL: Record<TabId, string> = {
@@ -71,6 +112,7 @@ export function ResourceDetailPanel({
   const [inlineDiff, setInlineDiff] = useState(false);
   const [editedYaml, setEditedYaml] = useState<string | null>(null);
   const [applyError, setApplyError] = useState<string | null>(null);
+  const [eventFilter, setEventFilter] = useState<"all" | "warning">("all");
   const qc = useQueryClient();
 
   const isSyntheticApp = node.kind === "Application" && node.uid.startsWith("synthetic:app:");
@@ -78,7 +120,7 @@ export function ResourceDetailPanel({
   const isPod = node.kind === "Pod";
   const hasEvents = isPod || node.kind === "ReplicaSet" || node.kind === "Deployment" || node.kind === "StatefulSet" || node.kind === "DaemonSet";
 
-  const { data: podEvents } = useQuery({
+  const { data: podEvents, refetch: refetchPodEvents } = useQuery({
     queryKey: ["pod-events", appName, node.name],
     queryFn: () => api.getPodEvents(appName, node.name),
     enabled: isPod && tab === "events",
@@ -86,13 +128,24 @@ export function ResourceDetailPanel({
     retry: 0,
   });
 
-  const { data: resourceEvents } = useQuery({
+  const { data: resourceEvents, refetch: refetchResourceEvents } = useQuery({
     queryKey: ["resource-events", appName, node.kind, node.name, node.namespace],
     queryFn: () => api.getResourceEvents(appName, node.kind, node.name, node.namespace),
     enabled: !isPod && hasEvents && tab === "events",
     refetchInterval: !isPod && hasEvents && tab === "events" ? 5000 : false,
     retry: 0,
   });
+
+  const rawEvents = isPod ? podEvents : resourceEvents;
+  const eventsLoading = isPod
+    ? podEvents === undefined
+    : resourceEvents === undefined;
+  const refetchEventsFn = isPod ? refetchPodEvents : refetchResourceEvents;
+  const filteredEvents = useMemo(() => {
+    const list = rawEvents ?? [];
+    if (eventFilter === "warning") return list.filter((e) => e.type === "Warning");
+    return list;
+  }, [rawEvents, eventFilter]);
 
   const { data: diffData } = useQuery({
     queryKey: ["app-diff", appName],
@@ -137,7 +190,7 @@ export function ResourceDetailPanel({
   }, [node.uid]);
 
   return (
-    <aside className="w-full max-w-[min(100vw,520px)] h-full flex flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden">
+    <aside className="w-full h-full flex flex-col border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden">
       <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] px-4 py-3 flex items-start justify-between gap-3">
         <div className="flex gap-3 min-w-0">
           <span
@@ -160,7 +213,7 @@ export function ResourceDetailPanel({
             {isSyntheticApp && app && <div className="text-sm font-semibold text-[var(--color-text)] truncate">{app.name}</div>}
           </div>
         </div>
-        <button type="button" className="text-xs text-[var(--color-text-muted)] hover:text-[var(--color-accent)] underline shrink-0" onClick={onClose}>
+        <button type="button" className="rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2 py-1 text-xs text-[var(--color-text)] hover:border-[var(--color-border-strong)] shrink-0" onClick={onClose}>
           Close
         </button>
       </div>
@@ -171,7 +224,7 @@ export function ResourceDetailPanel({
             key={id}
             type="button"
             onClick={() => setTab(id)}
-            className={`px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-t-md border-b-2 -mb-px whitespace-nowrap ${
+            className={`px-3 py-2 text-xs font-semibold uppercase tracking-wide rounded-t-md border-b-2 -mb-px whitespace-nowrap transition-all duration-150 hover:translate-y-[-1px] ${
               tab === id
                 ? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-surface)]"
                 : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
@@ -429,11 +482,78 @@ export function ResourceDetailPanel({
         )}
 
         {tab === "events" && (
-          <div className="p-4 overflow-y-auto flex-1 min-h-0">
-            {isPod ? (
-              <EventsList events={podEvents} />
-            ) : hasEvents ? (
-              <EventsList events={resourceEvents} />
+          <div className="flex-1 flex flex-col min-h-[300px] p-3 gap-2">
+            {hasEvents ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-2.5 py-1.5 text-xs font-medium text-[#0a0e14] hover:brightness-110 disabled:opacity-50"
+                    onClick={() => void refetchEventsFn()}
+                    disabled={eventsLoading}
+                  >
+                    <RotateCcw className="size-3.5" /> Refresh
+                  </button>
+                  <div className="inline-flex rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-0.5">
+                    {(["all", "warning"] as const).map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        className={`rounded-sm px-2 py-1 text-xs font-medium capitalize ${
+                          eventFilter === opt
+                            ? "bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)]"
+                            : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                        }`}
+                        onClick={() => setEventFilter(opt)}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
+                    Auto-refresh every 5 s
+                  </span>
+                </div>
+                <div className="flex-1 overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                  {!filteredEvents.length && !eventsLoading && (
+                    <div className="p-4 text-xs text-[var(--color-text-muted)]">
+                      {eventFilter === "warning" ? "No warnings." : "No events found."}
+                    </div>
+                  )}
+                  {!!filteredEvents.length && (
+                    <table className="w-full text-left text-xs">
+                      <thead className="sticky top-0 bg-[var(--color-surface)] border-b border-[var(--color-border)] z-10">
+                        <tr className="text-[var(--color-text-muted)] uppercase tracking-wide">
+                          <th className="px-2 py-2 w-16">Type</th>
+                          <th className="px-2 py-2 w-28">Category</th>
+                          <th className="px-2 py-2 w-28">Reason</th>
+                          <th className="px-2 py-2">Message</th>
+                          <th className="px-2 py-2 w-40 hidden md:table-cell">Last seen</th>
+                          <th className="px-2 py-2 w-10 text-right">#</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
+                        {filteredEvents.map((ev, i) => (
+                          <tr key={`${ev.reason}-${i}`} className={`align-top ${resourceEventRowClass(ev)}`}>
+                            <td className={`px-2 py-1.5 whitespace-nowrap font-mono ${ev.type === "Warning" ? "text-amber-300" : ""}`}>{ev.type}</td>
+                            <td className="px-2 py-1.5 whitespace-nowrap">
+                              <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${getResourceCategoryBadgeColor(ev.category ?? deriveEventCategory(ev.reason))}`}>
+                                {ev.category ?? deriveEventCategory(ev.reason)}
+                              </span>
+                            </td>
+                            <td className="px-2 py-1.5 whitespace-nowrap text-[var(--color-text-muted)]">{ev.reason}</td>
+                            <td className="px-2 py-1.5 break-words">{ev.message}</td>
+                            <td className="px-2 py-1.5 text-[var(--color-text-muted)] hidden md:table-cell whitespace-nowrap">
+                              {formatResourceEventTime((ev as any).lastTime ?? ev.firstTime)}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-[var(--color-text-muted)]">{ev.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </>
             ) : (
               <div className="text-sm text-[var(--color-text-muted)]">
                 Events are surfaced for <strong>Pod</strong> resources. For other kinds, use <code>kubectl describe</code> or inspect the owning pods.
@@ -455,32 +575,5 @@ export function ResourceDetailPanel({
         )}
       </div>
     </aside>
-  );
-}
-
-function EventsList({ events }: { events: PodEvent[] | undefined }) {
-  if (!events) return <div className="text-xs text-[var(--color-text-muted)]">Loading events…</div>;
-  if (!events.length) return <div className="text-xs text-[var(--color-text-muted)]">No events found.</div>;
-  return (
-    <table className="w-full text-left text-xs">
-      <thead className="text-[var(--color-text-muted)] uppercase tracking-wide">
-        <tr>
-          <th className="py-1 pr-2 w-16">Type</th>
-          <th className="py-1 pr-2 w-32">Reason</th>
-          <th className="py-1 pr-2">Message</th>
-          <th className="py-1 pr-2 w-10 text-right">#</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-[var(--color-border)] text-[var(--color-text)]">
-        {events.map((ev, i) => (
-          <tr key={`${ev.reason}-${i}`} className={ev.type === "Warning" ? "bg-amber-500/5" : ""}>
-            <td className={`py-1.5 pr-2 font-mono whitespace-nowrap ${ev.type === "Warning" ? "text-amber-300" : ""}`}>{ev.type}</td>
-            <td className="py-1.5 pr-2 whitespace-nowrap">{ev.reason}</td>
-            <td className="py-1.5 pr-2 break-words">{ev.message}</td>
-            <td className="py-1.5 pr-0 text-right text-[var(--color-text-muted)]">{ev.count}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }

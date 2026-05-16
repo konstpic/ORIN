@@ -24,7 +24,6 @@ import { ApplicationDetailsDrawer } from "../components/ApplicationDetailsDrawer
 import { ResourceTreePanel } from "../components/ResourceTreePanel";
 import { DiffDrawer } from "../components/DiffDrawer";
 import { HistoryDrawer } from "../components/HistoryDrawer";
-import { OutOfSyncHelper } from "../components/OutOfSyncHelper";
 import { OutOfSyncDrawer } from "../components/OutOfSyncDrawer";
 import { useAuth } from "../state/auth";
 import { openAppEvents } from "../api/ws";
@@ -152,14 +151,6 @@ export function AppDetailPage() {
     refetchInterval: 10_000,
   });
 
-  // Fetch diff data to show OutOfSync count
-  const { data: diffData } = useQuery({
-    queryKey: ["app-diff", name],
-    queryFn: () => api.appDiff(name),
-    enabled: !!app && app.status.sync === "OutOfSync",
-    refetchInterval: 15_000,
-  });
-
   useEffect(() => {
     if (!name) return;
     const conn = openAppEvents(name, token, () => {
@@ -230,17 +221,21 @@ export function AppDetailPage() {
           <div className="flex flex-wrap items-center gap-2 justify-end">
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-all duration-200 ${
+                refresh.isPending
+                  ? "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-text-muted)] opacity-60 cursor-wait"
+                  : "border-[var(--color-border)] bg-[var(--color-input-bg)] text-[var(--color-text)] hover:border-[var(--color-border-strong)] active:scale-95"
+              }`}
               onClick={() => refresh.mutate()}
               disabled={refresh.isPending}
               title="Re-render manifests & refresh tree"
             >
               <RefreshCcw className={`size-3.5 ${refresh.isPending ? "animate-spin" : ""}`} />
-              Refresh
+              {refresh.isPending ? "Refreshing…" : "Refresh"}
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => setDiffOpen(true)}
             >
               <FileDiff className="size-3.5" />
@@ -248,7 +243,7 @@ export function AppDetailPage() {
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => setHistoryOpen(true)}
             >
               <History className="size-3.5" />
@@ -256,7 +251,7 @@ export function AppDetailPage() {
             </button>
             <button
               type="button"
-              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
               onClick={() => setDetailsOpen(true)}
             >
               <Settings className="size-3.5" />
@@ -443,12 +438,6 @@ export function AppDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        )}
-        {/* OutOfSync helper with troubleshooting tips */}
-        {app.status.sync === "OutOfSync" && !app.status.syncOperation && (
-          <div className="max-w-[1800px] mx-auto px-6 pb-3">
-            <OutOfSyncHelper appName={name} outOfSyncCount={diffData?.outOfSync ?? 0} />
           </div>
         )}
       </header>

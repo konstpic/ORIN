@@ -47,8 +47,10 @@ function NodeRow({
             onNodeSelect?.(node);
           }
         }}
-        className={`flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2.5 transition-shadow ${
-          clickable ? "cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-md" : ""
+        className={`flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2.5 transition-all duration-150 ${
+          clickable
+            ? "cursor-pointer hover:border-[var(--color-border-strong)] hover:shadow-md hover:scale-[1.005] active:scale-[0.995]"
+            : ""
         }`}
         style={{ marginLeft: depth * 16 }}
         title={node.syncMessage || undefined}

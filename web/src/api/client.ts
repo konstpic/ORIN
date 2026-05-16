@@ -139,6 +139,23 @@ export const api = {
     );
   },
 
+  restartLiveResource: (
+    appName: string,
+    res: { group: string; version: string; kind: string; namespace?: string; name: string },
+  ) => {
+    const q = new URLSearchParams({
+      group: res.group,
+      version: res.version,
+      kind: res.kind,
+      name: res.name,
+    });
+    if (res.namespace) q.set("namespace", res.namespace);
+    return request<{ message?: string; action?: string }>(
+      `/api/v1/applications/${encodeURIComponent(appName)}/live-resource/restart?${q}`,
+      { method: "POST" },
+    );
+  },
+
   deletePod: (app: string, pod: string) =>
     request<void>(
       `/api/v1/applications/${encodeURIComponent(app)}/pods/${encodeURIComponent(pod)}`,

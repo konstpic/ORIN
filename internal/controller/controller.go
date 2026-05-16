@@ -42,6 +42,12 @@ type Controller struct {
 
 	mu      sync.RWMutex
 	tracked map[string]struct{} // app names actively in queues
+
+	// manualApplyGrace tracks the timestamp of the last manual live-apply per app.
+	// Auto-sync is suppressed for these apps during the grace period to let
+	// user edits survive without being immediately reverted by self-heal.
+	manualApplyMu    sync.Mutex
+	manualApplyGrace map[string]time.Time
 }
 
 // New constructs the Controller.
@@ -57,6 +63,7 @@ func New(cfg *config.Config, st *store.Store, cm *k8s.ClusterManager, rs *repose
 		statusQ:        newWorkqueue(),
 		syncQ:          newWorkqueue(),
 		tracked:        make(map[string]struct{}),
+		manualApplyGrace: make(map[string]time.Time),
 	}
 }
 
@@ -88,6 +95,30 @@ func (c *Controller) EnqueueStatus(appName string) { c.statusQ.Add(appName) }
 
 // EnqueueSync schedules a sync execution.
 func (c *Controller) EnqueueSync(appName string) { c.syncQ.Add(appName) }
+
+// MarkManualApply records that a manual live-apply occurred for the given app,
+// suppressing auto-sync for the configured grace period.
+func (c *Controller) MarkManualApply(appName string) {
+	c.manualApplyMu.Lock()
+	defer c.manualApplyMu.Unlock()
+	c.manualApplyGrace[appName] = time.Now()
+}
+
+// isManualApplyGrace checks whether the app is still within the manual-apply
+// grace period during which auto-sync should be suppressed.
+func (c *Controller) isManualApplyGrace(appName string) bool {
+	c.manualApplyMu.Lock()
+	defer c.manualApplyMu.Unlock()
+	t, ok := c.manualApplyGrace[appName]
+	if !ok {
+		return false
+	}
+	if time.Since(t) > c.cfg.AutoSyncGracePeriod {
+		delete(c.manualApplyGrace, appName)
+		return false
+	}
+	return true
+}
 
 func (c *Controller) enqueueAll(ctx context.Context) {
 	apps, err := c.store.Applications.List(ctx)
@@ -242,9 +273,12 @@ func (c *Controller) reconcileStatus(ctx context.Context, appName string) error 
 	// Auto-sync hook: enqueue at most one unfinished sync per app. Without this
 	// guard, every status reconcile while OutOfSync stacks Pending rows (resync
 	// ticker, post-sync requeue, git poll) and looks like an infinite auto-sync.
+	// Additionally, auto-sync is suppressed for a grace period after a manual
+	// live-apply so the user's edit can persist and show as OutOfSync.
 	if app.SyncPolicy.Automated != nil &&
 		newStatus.SyncStatus == domain.SyncStatusOutOfSync &&
-		!c.cfg.SyncDeniedAt(time.Now()) {
+		!c.cfg.SyncDeniedAt(time.Now()) &&
+		!c.isManualApplyGrace(app.Name) {
 		busy, err := c.store.Sync.HasPendingOrRunning(ctx, app.ID)
 		if err != nil {
 			slog.Warn("auto-sync: check pending/running", "app", app.Name, "err", err)

@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Layers, Boxes } from "lucide-react";
+import { Layers } from "lucide-react";
 import { ResourceTreeView } from "./ResourceTreeView";
 import { ResourceTopologyView } from "./ResourceTopologyView";
 import { PodDrawer } from "./PodDrawer";
@@ -22,12 +22,40 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [mode, setMode] = useState<"list" | "topology">("topology");
-  const [compactTopology, setCompactTopology] = useState(true);
   const [groupOtherKinds, setGroupOtherKinds] = useState(true);
   const [expandedReplicaSetUids, setExpandedReplicaSetUids] = useState<Set<string>>(() => new Set());
   const [expandedGroupUids, setExpandedGroupUids] = useState<Set<string>>(() => new Set());
   const [expandedListGroupUids, setExpandedListGroupUids] = useState<Set<string>>(() => new Set());
   const [selected, setSelected] = useState<ResourceNode | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarClosing, setSidebarClosing] = useState(false);
+
+  // Open sidebar with animation
+  const openSidebar = useCallback((node: ResourceNode) => {
+    setSelected(node);
+    setSidebarClosing(false);
+    // Next tick: trigger slide-in animation
+    requestAnimationFrame(() => setSidebarOpen(true));
+  }, []);
+
+  // Close sidebar with animation
+  const closeSidebar = useCallback(() => {
+    setSidebarClosing(true);
+    setSidebarOpen(false);
+    // After transition, unmount
+    setTimeout(() => setSelected(null), 300);
+  }, []);
+
+  // Escape key closes sidebar
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selected) {
+        closeSidebar();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [selected, closeSidebar]);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -35,14 +63,26 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
   const [resourceFilter, setResourceFilter] = useState("");
 
   const deleteMut = useMutation({
-    mutationFn: (node: ContextMenuState["node"]) =>
-      node.kind === "Pod"
-        ? api.deletePod(name, node.name)
-        : api.deleteLiveResource(name, node),
+    mutationFn: (node: ContextMenuState["node"]) => {
+      if (node.kind === "Pod") return api.deletePod(name, node.name);
+      if (node.kind === "ReplicaSet") {
+        // ReplicaSet delete goes through restart (safe replace)
+        return api.restartLiveResource(name, node).then(() => {});
+      }
+      return api.deleteLiveResource(name, node);
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["app-tree", name] });
-      if (selected?.name === pendingAction?.node.name) setSelected(null);
+      if (selected?.name === pendingAction?.node.name) {
+        closeSidebar();
+      }
     },
+    onError: (err: Error) => setActionError(err.message),
+  });
+
+  const restartMut = useMutation({
+    mutationFn: (node: ContextMenuState["node"]) => api.restartLiveResource(name, node),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["app-tree", name] }),
     onError: (err: Error) => setActionError(err.message),
   });
 
@@ -56,12 +96,13 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
     (action: ResourceAction, node: ContextMenuState["node"]) => {
       if (action === "sync") {
         syncMut.mutate(node);
+      } else if (action === "restart") {
+        restartMut.mutate(node);
       } else {
-        // delete and restart both need confirmation
         setPendingAction({ action, node });
       }
     },
-    [syncMut],
+    [syncMut, restartMut],
   );
 
   const confirmAction = useCallback(() => {
@@ -97,8 +138,8 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
   });
 
   const onSelect = useCallback((n: ResourceNode) => {
-    setSelected(n);
-  }, []);
+    openSidebar(n);
+  }, [openSidebar]);
 
   const filteredNodes = useMemo(
     () => (data?.nodes?.length ? filterResourceForest(data.nodes, resourceFilter) : []),
@@ -112,7 +153,6 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             appName: app.name,
             appHealth: app.status.health,
             appSync: app.status.sync,
-            compactPods: compactTopology,
             groupOtherKinds,
             expandedReplicaSetUids,
             expandedGroupUids,
@@ -123,7 +163,6 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       app.name,
       app.status.health,
       app.status.sync,
-      compactTopology,
       groupOtherKinds,
       expandedReplicaSetUids,
       expandedGroupUids,
@@ -175,7 +214,9 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
     });
   }, []);
 
-  if (isLoading) return <div className="text-sm text-[var(--color-text-muted)]">Loading resources…</div>;
+  if (isLoading) return (
+    <div className="text-sm text-[var(--color-text-muted)] animate-pulse">Loading resources…</div>
+  );
   if (error) return <div className="text-sm text-red-400">{(error as Error).message}</div>;
   if (!data?.nodes?.length) {
     return <div className="text-sm text-[var(--color-text-muted)]">No resources yet — try syncing.</div>;
@@ -205,55 +246,35 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
           <h2 className="text-base font-semibold text-[var(--color-text)]">Resources</h2>
           <p className="text-xs text-[var(--color-text-muted)]">
             {mode === "topology"
-              ? "Pan, zoom, click a node. Group pods folds replicas into their controller; Group kinds collapses ConfigMap/Secret/Service clusters."
+              ? "Pan, zoom, click a node. Group kinds collapses same-kind resources. Pods are grouped under their controller."
               : "List view — hierarchical live objects."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2 justify-end">
           {mode === "topology" && (
-            <div className="inline-flex shrink-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-0.5">
-              <button
-                type="button"
-                title={compactTopology ? "Pods are grouped under their controller (ReplicaSet / Deployment)" : "Show every pod as a separate map node"}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  compactTopology
-                    ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
-                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                }`}
-                onClick={() => {
-                  setCompactTopology((c) => {
-                    if (c) setExpandedReplicaSetUids(new Set());
-                    return !c;
-                  });
-                }}
-              >
-                <Boxes className="size-3.5 shrink-0" strokeWidth={2} />
-                Group pods
-              </button>
-              <button
-                type="button"
-                title={groupOtherKinds ? "ConfigMap/Secret/Service/etc. clusters get a single group tile" : "Show every resource individually"}
-                className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                  groupOtherKinds
-                    ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
-                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
-                }`}
-                onClick={() => {
-                  setGroupOtherKinds((g) => {
-                    if (g) setExpandedGroupUids(new Set());
-                    return !g;
-                  });
-                }}
-              >
-                <Layers className="size-3.5 shrink-0" strokeWidth={2} />
-                Group kinds
-              </button>
-            </div>
+            <button
+              type="button"
+              title={groupOtherKinds ? "Group same-kind resources together" : "Show every resource individually"}
+              className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
+                groupOtherKinds
+                  ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+              onClick={() => {
+                setGroupOtherKinds((g) => {
+                  if (g) setExpandedGroupUids(new Set());
+                  return !g;
+                });
+              }}
+            >
+              <Layers className="size-3.5 shrink-0" strokeWidth={2} />
+              Group kinds
+            </button>
           )}
           <div className="inline-flex shrink-0 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-0.5">
             <button
               type="button"
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
                 mode === "topology"
                   ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
@@ -264,7 +285,7 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             </button>
             <button
               type="button"
-              className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
                 mode === "list"
                   ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
@@ -321,16 +342,26 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       {pendingAction && (
         <ConfirmDialog
           title={
-            pendingAction.action === "restart"
-              ? `Restart pod "${pendingAction.node.name}"?`
-              : `Delete ${pendingAction.node.kind} "${pendingAction.node.name}"?`
+            pendingAction.action === "restart" && pendingAction.node.kind === "Deployment"
+              ? `Restart Deployment "${pendingAction.node.name}"?`
+              : pendingAction.action === "restart"
+                ? `Restart pod "${pendingAction.node.name}"?`
+                : pendingAction.node.kind === "ReplicaSet"
+                  ? `Replace ReplicaSet "${pendingAction.node.name}"?`
+                  : `Delete ${pendingAction.node.kind} "${pendingAction.node.name}"?`
           }
           description={
-            pendingAction.action === "restart"
-              ? "The pod will be deleted and Kubernetes will restart it via its controller."
-              : "This will delete the live resource from the cluster. It may be re-created on the next sync."
+            pendingAction.action === "restart" && pendingAction.node.kind === "Deployment"
+              ? "A new ReplicaSet will be created and pods will be rolled over with zero downtime."
+              : pendingAction.action === "restart"
+                ? "The pod will be deleted and Kubernetes will restart it via its controller."
+                : pendingAction.node.kind === "ReplicaSet"
+                  ? "A new ReplicaSet will be created first, then the old one will be removed. Zero-downtime replacement."
+                  : "This will delete the live resource from the cluster. It may be re-created on the next sync."
           }
-          confirmLabel={pendingAction.action === "restart" ? "Restart" : "Delete"}
+          confirmLabel={
+            pendingAction.action === "restart" || pendingAction.node.kind === "ReplicaSet" ? "Restart" : "Delete"
+          }
           danger
           onConfirm={confirmAction}
           onCancel={() => setPendingAction(null)}
@@ -338,11 +369,11 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       )}
 
       {actionError && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[10001] rounded-lg border border-red-500/40 bg-red-950/80 px-4 py-2.5 text-xs text-red-300 shadow-xl backdrop-blur-sm max-w-sm text-center">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[10001] rounded-lg border border-red-500/40 bg-red-950/80 px-4 py-2.5 text-xs text-red-300 shadow-xl backdrop-blur-sm max-w-sm text-center animate-[slideUp_0.2s_ease-out]">
           {actionError}
           <button
             type="button"
-            className="ml-3 underline opacity-70 hover:opacity-100"
+            className="ml-3 underline opacity-70 hover:opacity-100 transition-opacity"
             onClick={() => setActionError(null)}
           >
             Dismiss
@@ -351,32 +382,49 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       )}
 
       {selected?.kind === "Pod" && (
-        <div className="fixed inset-0 z-40 flex justify-end sm:pl-12 pointer-events-none">
+        <div className="fixed inset-0 z-40 flex justify-end sm:pl-12">
+          {/* Backdrop — click outside to close */}
           <div
-            className="pointer-events-auto h-full w-full max-w-[min(100vw,720px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden"
-            style={{ marginTop: "env(safe-area-inset-top, 0)" }}
+            className="absolute inset-0 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
+            style={{ opacity: sidebarClosing ? 0 : 1 }}
+            onClick={closeSidebar}
+          />
+          <div
+            className="relative pointer-events-auto h-full w-full max-w-[min(100vw,720px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden transition-transform duration-300 ease-out"
+            style={{ marginTop: "env(safe-area-inset-top, 0)", transform: sidebarOpen ? "translateX(0)" : "translateX(100%)" }}
           >
-            <PodDrawer appName={name} node={selected} onClose={() => setSelected(null)} />
+            <PodDrawer appName={name} node={selected} onClose={closeSidebar} />
           </div>
         </div>
       )}
       {selected && selected.kind !== "Pod" && (
-        <div className="fixed inset-0 z-40 flex justify-end sm:pl-24 pointer-events-none">
-          <div className="pointer-events-auto h-full w-full max-w-[min(100vw,640px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl p-0 overflow-hidden">
+        <div className="fixed inset-0 z-40 flex justify-end sm:pl-12">
+          {/* Backdrop — click outside to close */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-[2px] transition-opacity duration-300"
+            style={{ opacity: sidebarClosing ? 0 : 1 }}
+            onClick={closeSidebar}
+          />
+          <div
+            className="relative pointer-events-auto h-full w-full max-w-[min(100vw,720px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden transition-transform duration-300 ease-out"
+            style={{ transform: sidebarOpen ? "translateX(0)" : "translateX(100%)" }}
+          >
             <ResourceDetailPanel
               appName={name}
               node={selected}
               app={app}
-              onClose={() => setSelected(null)}
+              onClose={closeSidebar}
               onOpenPod={onSelect}
-              onSelectMember={(child) => setSelected(child)}
+              onSelectMember={(child) => {
+                setSelected(child);
+              }}
               onExpandCompactPods={(uid) => {
                 expandReplicaSetOnMap(uid);
-                setSelected(null);
+                closeSidebar();
               }}
               onExpandKindGroup={(uid) => {
                 expandKindGroupOnMap(uid);
-                setSelected(null);
+                closeSidebar();
               }}
             />
           </div>

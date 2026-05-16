@@ -40,6 +40,9 @@ export function actionsForKind(kind: string): ResourceAction[] {
   if (kind === "Pod") {
     return ["restart", "delete", "sync"];
   }
+  if (kind === "Deployment" || kind === "ReplicaSet") {
+    return ["restart", "sync", "delete"];
+  }
   // Synthetic / UI-only nodes have no live cluster operations
   if (kind === "Application" || kind === "PodGroup" || kind === "KindGroup") {
     return [];
@@ -104,7 +107,7 @@ export function ResourceContextMenu({
           key={action}
           role="menuitem"
           type="button"
-          className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-[var(--color-surface-muted)] ${
+          className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-all duration-150 hover:bg-[var(--color-surface-muted)] active:scale-[0.98] ${
             ACTION_DANGER[action]
               ? "text-red-400 hover:text-red-300"
               : "text-[var(--color-text)] hover:text-[var(--color-accent)]"

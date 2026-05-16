@@ -66,10 +66,10 @@ function ApplicationNode(props: NodeProps) {
   const Icon = iconForKind("Application");
   return (
     <div
-      className={`rounded-xl border bg-[var(--color-elevated)] px-4 py-3 shadow-lg min-w-[240px] max-w-[300px] ${
+      className={`rounded-xl border bg-[var(--color-elevated)] px-4 py-3 shadow-lg min-w-[240px] max-w-[300px] transition-all duration-150 cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] ${
         selected
           ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/35"
-          : "border-[var(--color-border-strong)]"
+          : "border-[var(--color-border-strong)] hover:border-[var(--color-border)]"
       }`}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none !w-0 !h-0 !min-w-0 !min-h-0 !border-0" />
@@ -108,10 +108,10 @@ function KindNode(props: NodeProps) {
   const age = relativeTime(data.raw.creationTimestamp);
   return (
     <div
-      className={`rounded-lg border bg-[var(--color-surface)] px-3 py-2.5 shadow-md min-w-[180px] max-w-[240px] ${
+      className={`rounded-lg border bg-[var(--color-surface)] px-3 py-2.5 shadow-md min-w-[180px] max-w-[240px] transition-all duration-150 cursor-pointer hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ${
         selected
           ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30"
-          : "border-[var(--color-border)]"
+          : "border-[var(--color-border)] hover:border-[var(--color-border-strong)]"
       }`}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none !w-0 !h-0 !min-w-0 !min-h-0 !border-0" />
@@ -196,10 +196,10 @@ function ChildAppNode(props: NodeProps) {
   const age = relativeTime(data.raw.creationTimestamp);
   return (
     <div
-      className={`rounded-xl border bg-[var(--color-elevated)] px-4 py-3 shadow-lg min-w-[240px] max-w-[300px] ${
+      className={`rounded-xl border bg-[var(--color-elevated)] px-4 py-3 shadow-lg min-w-[240px] max-w-[300px] transition-all duration-150 cursor-pointer hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] ${
         selected
           ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/35"
-          : "border-cyan-500/40"
+          : "border-cyan-500/40 hover:border-cyan-500/60"
       }`}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0 !pointer-events-none !w-0 !h-0 !min-w-0 !min-h-0 !border-0" />

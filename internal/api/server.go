@@ -101,6 +101,7 @@ func (s *Server) Handler() http.Handler {
 		r.Put("/api/v1/applications/{name}/live-resource", s.applyLiveResource)
 		r.Delete("/api/v1/applications/{name}/live-resource", s.deleteLiveResource)
 		r.Post("/api/v1/applications/{name}/live-resource/sync", s.syncLiveResource)
+		r.Post("/api/v1/applications/{name}/live-resource/restart", s.restartLiveResource)
 
 		r.Get("/api/v1/repositories", s.listRepositories)
 		r.Post("/api/v1/repositories", s.createRepository)

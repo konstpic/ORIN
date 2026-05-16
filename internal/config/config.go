@@ -48,6 +48,10 @@ type Config struct {
 	ReconcileResync    time.Duration
 	// SyncApplyRetries is per-resource apply attempts on transient errors (>=1).
 	SyncApplyRetries int
+	// AutoSyncGracePeriod is the duration after a manual live-apply during which
+	// auto-sync (self-heal) is suppressed, allowing the user's edit to persist
+	// and show as OutOfSync instead of being immediately reverted.
+	AutoSyncGracePeriod time.Duration
 	// SyncDenyRangeUTC blocks manual and auto sync during a daily UTC window,
 	// format "22:00-06:00". Empty disables.
 	SyncDenyRangeUTC string
@@ -82,6 +86,7 @@ func Load() (*Config, error) {
 		ReconcileWorkers:  envInt("RECONCILE_WORKERS", 10),
 		ReconcileResync:   envDuration("RECONCILE_RESYNC", 3*time.Minute),
 		SyncApplyRetries:  envInt("SYNC_APPLY_RETRIES", 1),
+		AutoSyncGracePeriod: envDuration("AUTO_SYNC_GRACE_PERIOD", 30*time.Minute),
 		SyncDenyRangeUTC:  os.Getenv("SYNC_DENY_RANGE_UTC"),
 		OIDCIssuerURL:     os.Getenv("OIDC_ISSUER_URL"),
 		OIDCClientID:      os.Getenv("OIDC_CLIENT_ID"),

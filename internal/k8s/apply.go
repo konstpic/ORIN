@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -170,4 +171,36 @@ func deduplicatePorts(obj *unstructured.Unstructured, path ...string) {
 // base64Encode encodes a string to base64
 func base64Encode(s string) string {
 	return base64.StdEncoding.EncodeToString([]byte(s))
+}
+
+// RestartDeployment performs a rolling restart by patching the pod template
+// with a "restartedAt" annotation. This is equivalent to `kubectl rollout restart`.
+func (cm *ClusterManager) RestartDeployment(ctx context.Context, namespace, name string) error {
+	mapping, err := cm.MappingFor(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})
+	if err != nil {
+		return fmt.Errorf("rest mapping: %w", err)
+	}
+	iface := cm.resourceIfaceFor(mapping, namespace)
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	patch := []byte(`{"spec":{"template":{"metadata":{"annotations":{"kubectl.kubernetes.io/restartedAt":"` + now + `"}}}}}`)
+	_, err = iface.Patch(ctx, name, types.MergePatchType, patch, metav1.PatchOptions{})
+	if err != nil {
+		return fmt.Errorf("restart deployment %s/%s: %w", namespace, name, err)
+	}
+	return nil
+}
+
+// GetOwnerReferences returns the owner references of a resource.
+func (cm *ClusterManager) GetOwnerReferences(ctx context.Context, gvk schema.GroupVersionKind, namespace, name string) ([]metav1.OwnerReference, error) {
+	mapping, err := cm.MappingFor(gvk)
+	if err != nil {
+		return nil, fmt.Errorf("rest mapping: %w", err)
+	}
+	iface := cm.resourceIfaceFor(mapping, namespace)
+	obj, err := iface.Get(ctx, name, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+	return obj.GetOwnerReferences(), nil
 }

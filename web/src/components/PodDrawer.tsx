@@ -356,7 +356,7 @@ export function PodDrawer({
           <button
             key={t}
             type="button"
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px shrink-0 capitalize ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px shrink-0 capitalize transition-all duration-150 hover:translate-y-[-1px] ${
               tab === t
                 ? "border-[var(--color-accent)] text-[var(--color-accent)]"
                 : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
