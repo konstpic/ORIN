@@ -60,8 +60,8 @@ function NodeIPNode({ data }: { data: { label: string; ip: string } }) {
 type NetworkFlowNodeData = {
   kind: string;
   name: string;
-  health?: { status: string };
-  sync?: { status: string };
+  health?: string;
+  sync?: string;
   creationTimestamp?: string;
   raw: {
     uid: string;
@@ -80,8 +80,8 @@ function NetworkResourceNode(props: NodeProps) {
   const data = props.data as NetworkFlowNodeData;
   const Icon = iconForKind(data.kind);
   const age = data.raw.creationTimestamp ? relativeTime(data.raw.creationTimestamp) : "";
-  const healthStatus: HealthStatus = (data.health?.status as HealthStatus) ?? "Unknown";
-  const syncStatus: SyncStatus = (data.sync?.status as SyncStatus) ?? "Unknown";
+  const healthStatus: HealthStatus = (data.health as HealthStatus) ?? "Unknown";
+  const syncStatus: SyncStatus = (data.sync as SyncStatus) ?? "Unknown";
 
   return (
     <div
@@ -180,6 +180,8 @@ export interface NetworkMapNode {
   kind: string;
   namespace: string;
   name: string;
+  health?: string;
+  sync?: string;
   labels?: Record<string, string>;
   selector?: Record<string, string>;
   ingressBackends?: string[];
@@ -360,6 +362,8 @@ function buildNetworkGraph(
       data: {
         kind: n.kind,
         name: n.name,
+        health: n.health,
+        sync: n.sync,
         raw: { uid: n.uid, kind: n.kind, name: n.name, labels: n.labels },
       },
     });
@@ -384,6 +388,8 @@ function buildNetworkGraph(
       data: {
         kind: n.kind,
         name: n.name,
+        health: n.health,
+        sync: n.sync,
         raw: { uid: n.uid, kind: n.kind, name: n.name, labels: n.labels },
       },
     });
@@ -415,6 +421,8 @@ function buildNetworkGraph(
       data: {
         kind: n.kind,
         name: n.name,
+        health: n.health,
+        sync: n.sync,
         raw: { uid: n.uid, kind: n.kind, name: n.name, labels: n.labels },
       },
     });
@@ -447,6 +455,8 @@ function buildNetworkGraph(
       data: {
         kind: n.kind,
         name: n.name,
+        health: n.health,
+        sync: n.sync,
         raw: { uid: n.uid, kind: n.kind, name: n.name },
       },
     });

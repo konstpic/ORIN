@@ -2,11 +2,13 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
+	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
 
 // NetworkMapNode is a node in the application network map.
@@ -18,6 +20,8 @@ type NetworkMapNode struct {
 	Namespace string            `json:"namespace"`
 	Name      string            `json:"name"`
 	Labels    map[string]string `json:"labels,omitempty"`
+	Health    string            `json:"health,omitempty"`
+	Sync      string            `json:"sync,omitempty"`
 	// Selector for Services (maps labels to Pods).
 	Selector map[string]string `json:"selector,omitempty"`
 	// IngressBackends: service names this Ingress routes to.
@@ -65,14 +69,68 @@ func (s *Server) getNetworkMap(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := buildNetworkMapResponse(tree)
+	// Enrich tree with health/sync before building network map
+	apiTree := toAPIResourceTree(tree)
+	s.enrichResourceTree(r, app, apiTree)
+
+	resp := buildNetworkMapResponse(tree, apiTree.Nodes)
 	writeJSON(w, http.StatusOK, resp)
 }
 
-func buildNetworkMapResponse(tree []*k8s.ResourceNode) *NetworkMapResponse {
-	// Flatten tree
+// toAPIResourceTree converts k8s.ResourceNode forest to apiv1.ResourceTree.
+func toAPIResourceTree(nodes []*k8s.ResourceNode) *apiv1.ResourceTree {
+	out := &apiv1.ResourceTree{Nodes: make([]apiv1.ResourceNode, 0, len(nodes))}
+	for _, n := range nodes {
+		out.Nodes = append(out.Nodes, k8sNodeToAPINode(n, ""))
+	}
+	return out
+}
+
+func k8sNodeToAPINode(n *k8s.ResourceNode, parentUID string) apiv1.ResourceNode {
+	un := n.Object
+	uid := string(un.GetUID())
+	if uid == "" {
+		uid = un.GroupVersionKind().Group + "/" + un.GetKind() + "/" + un.GetNamespace() + "/" + un.GetName()
+	}
+
+	api := apiv1.ResourceNode{
+		UID:               uid,
+		Group:             un.GroupVersionKind().Group,
+		Version:           un.GroupVersionKind().Version,
+		Kind:              un.GetKind(),
+		Namespace:         un.GetNamespace(),
+		Name:              un.GetName(),
+		Health:            string(k8s.Health(un)),
+		Sync:              "Unknown",
+		Labels:            un.GetLabels(),
+		CreationTimestamp: un.GetCreationTimestamp().Format(time.RFC3339),
+		ResourceVersion:   un.GetResourceVersion(),
+		ParentUID:         parentUID,
+		Children:          make([]apiv1.ResourceNode, 0, len(n.Children)),
+	}
+	for _, c := range n.Children {
+		api.Children = append(api.Children, k8sNodeToAPINode(c, uid))
+	}
+	return api
+}
+
+func buildNetworkMapResponse(rawNodes []*k8s.ResourceNode, enriched []apiv1.ResourceNode) *NetworkMapResponse {
+	// Index enriched nodes by UID for health/sync lookup
+	enrichedMap := make(map[string]apiv1.ResourceNode)
+	var indexEnriched func(nodes []apiv1.ResourceNode)
+	indexEnriched = func(nodes []apiv1.ResourceNode) {
+		for _, n := range nodes {
+			enrichedMap[n.UID] = n
+			if len(n.Children) > 0 {
+				indexEnriched(n.Children)
+			}
+		}
+	}
+	indexEnriched(enriched)
+
+	// Flatten raw tree
 	var all []*k8s.ResourceNode
-	walkTree(tree, &all)
+	walkTree(rawNodes, &all)
 
 	netKinds := map[string]bool{
 		"Ingress": true, "Service": true, "Pod": true,
@@ -101,6 +159,12 @@ func buildNetworkMapResponse(tree []*k8s.ResourceNode) *NetworkMapResponse {
 			Namespace: un.GetNamespace(),
 			Name:      un.GetName(),
 			Labels:    un.GetLabels(),
+		}
+
+		// Merge health/sync from enriched data
+		if en, ok := enrichedMap[uid]; ok {
+			node.Health = en.Health
+			node.Sync = en.Sync
 		}
 
 		// Extract Service selector
