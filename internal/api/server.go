@@ -104,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/v1/applications/{name}/resource-events", s.getApplicationResourceEvents)
 
 		r.Get("/api/v1/applications/{name}/resource-tree", s.appResourceTree)
+		r.Get("/api/v1/applications/{name}/network-map", s.getNetworkMap)
 		r.Get("/api/v1/applications/{name}/history", s.appHistory)
 		r.Get("/api/v1/applications/{name}/events", s.appEventsWS)
 		r.Put("/api/v1/applications/{name}/live-resource", s.applyLiveResource)
@@ -129,6 +130,8 @@ func (s *Server) Handler() http.Handler {
 
 		r.Get("/api/v1/clusters", s.listClusters)
 		r.Post("/api/v1/clusters", s.createCluster)
+		r.Get("/api/v1/clusters/health", s.listClusterHealth)
+		r.Get("/api/v1/clusters/{id}/nodes", s.listClusterNodes)
 
 		r.Get("/api/v1/projects", s.listProjects)
 		r.Post("/api/v1/projects", s.createProject)
@@ -161,6 +164,10 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/api/v1/users/{id}", s.getUser)
 		r.Put("/api/v1/users/{id}", s.updateUser)
 		r.Delete("/api/v1/users/{id}", s.deleteUser)
+
+		// System configuration
+		r.Get("/api/v1/system/config", s.getSystemConfig)
+		r.Put("/api/v1/system/config", s.updateSystemConfig)
 	})
 
 	// Static frontend assets (optional) - SPA fallback to index.html

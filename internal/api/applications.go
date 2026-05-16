@@ -680,7 +680,8 @@ func (s *Server) applyLiveResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := chi.URLParam(r, "name")
-	if _, ok := s.appByNameAuthorized(w, r, name); !ok {
+	app, ok := s.appByNameAuthorized(w, r, name)
+	if !ok {
 		return
 	}
 	body, err := func() ([]byte, error) {
@@ -710,7 +711,7 @@ func (s *Server) applyLiveResource(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadGateway, "apply_failed", err.Error())
 		return
 	}
-	s.opts.Controller.MarkManualApply(name)
+	s.opts.Controller.MarkManualApply(r.Context(), app.ID)
 	s.opts.Controller.EnqueueStatus(name)
 	writeJSON(w, http.StatusOK, result.Object)
 }
@@ -758,7 +759,7 @@ func (s *Server) restartLiveResource(w http.ResponseWriter, r *http.Request) {
 					writeError(w, http.StatusBadGateway, "restart_failed", err.Error())
 					return
 				}
-				s.opts.Controller.MarkManualApply(name)
+				s.opts.Controller.MarkManualApply(r.Context(), app.ID)
 				s.opts.Controller.EnqueueStatus(name)
 				writeJSON(w, http.StatusOK, map[string]string{
 					"message": "Deployment " + ref.Name + " restarted. Old ReplicaSet will be cleaned up.",
@@ -781,7 +782,7 @@ func (s *Server) restartLiveResource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.opts.Controller.MarkManualApply(name)
+	s.opts.Controller.MarkManualApply(r.Context(), app.ID)
 	s.opts.Controller.EnqueueStatus(name)
 	writeJSON(w, http.StatusOK, map[string]string{"message": "Restart initiated for " + kind + " " + resName})
 }

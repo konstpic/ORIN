@@ -44,29 +44,22 @@ type Controller struct {
 
 	mu      sync.RWMutex
 	tracked map[string]struct{} // app names actively in queues
-
-	// manualApplyGrace tracks the timestamp of the last manual live-apply per app.
-	// Auto-sync is suppressed for these apps during the grace period to let
-	// user edits survive without being immediately reverted by self-heal.
-	manualApplyMu    sync.Mutex
-	manualApplyGrace map[string]time.Time
 }
 
 // New constructs the Controller.
 func New(cfg *config.Config, st *store.Store, cm *k8s.ClusterManager, rs *reposerver.Server, hub *ws.Hub, cipher *crypto.Cipher, notifier *notify.Dispatcher) *Controller {
 	return &Controller{
-		cfg:            cfg,
-		store:          st,
-		k8s:            cm,
-		repo:           rs,
-		hub:            hub,
-		cipher:         cipher,
-		notifier:       notifier,
-		remoteClients:  make(map[string]*k8s.RemoteCluster),
-		statusQ:        newWorkqueue(),
-		syncQ:          newWorkqueue(),
-		tracked:        make(map[string]struct{}),
-		manualApplyGrace: make(map[string]time.Time),
+		cfg:           cfg,
+		store:         st,
+		k8s:           cm,
+		repo:          rs,
+		hub:           hub,
+		cipher:        cipher,
+		notifier:      notifier,
+		remoteClients: make(map[string]*k8s.RemoteCluster),
+		statusQ:       newWorkqueue(),
+		syncQ:         newWorkqueue(),
+		tracked:       make(map[string]struct{}),
 	}
 }
 
@@ -99,28 +92,26 @@ func (c *Controller) EnqueueStatus(appName string) { c.statusQ.Add(appName) }
 // EnqueueSync schedules a sync execution.
 func (c *Controller) EnqueueSync(appName string) { c.syncQ.Add(appName) }
 
-// MarkManualApply records that a manual live-apply occurred for the given app,
-// suppressing auto-sync for the configured grace period.
-func (c *Controller) MarkManualApply(appName string) {
-	c.manualApplyMu.Lock()
-	defer c.manualApplyMu.Unlock()
-	c.manualApplyGrace[appName] = time.Now()
+// MarkManualApply records a manual live-apply timestamp for the app,
+// suppressing auto-sync for the configured grace period. The timestamp is
+// persisted in the database so it survives pod restarts and leader failovers.
+func (c *Controller) MarkManualApply(ctx context.Context, appID string) {
+	_ = c.store.Status.UpsertLastManualApply(ctx, appID, time.Now().UTC())
 }
 
 // isManualApplyGrace checks whether the app is still within the manual-apply
-// grace period during which auto-sync should be suppressed.
-func (c *Controller) isManualApplyGrace(appName string) bool {
-	c.manualApplyMu.Lock()
-	defer c.manualApplyMu.Unlock()
-	t, ok := c.manualApplyGrace[appName]
-	if !ok {
+// grace period during which auto-sync should be suppressed. Reads from the
+// persisted last_manual_apply_at column so it survives pod restarts and
+// leader failovers.
+func (c *Controller) isManualApplyGrace(ctx context.Context, app *domain.Application) bool {
+	st, err := c.store.Status.Get(ctx, app.ID)
+	if err != nil {
+		return false // no status row = no grace period
+	}
+	if st.LastManualApplyAt == nil {
 		return false
 	}
-	if time.Since(t) > c.cfg.AutoSyncGracePeriod {
-		delete(c.manualApplyGrace, appName)
-		return false
-	}
-	return true
+	return time.Since(*st.LastManualApplyAt) < c.cfg.AutoSyncGracePeriod
 }
 
 func (c *Controller) enqueueAll(ctx context.Context) {
@@ -281,15 +272,7 @@ func (c *Controller) reconcileStatus(ctx context.Context, appName string) error 
 	if app.SyncPolicy.Automated != nil &&
 		newStatus.SyncStatus == domain.SyncStatusOutOfSync &&
 		!c.cfg.SyncDeniedAt(time.Now()) &&
-		!c.isManualApplyGrace(app.Name) {
-		busy, err := c.store.Sync.HasPendingOrRunning(ctx, app.ID)
-		if err != nil {
-			slog.Warn("auto-sync: check pending/running", "app", app.Name, "err", err)
-			return nil
-		}
-		if busy {
-			return nil
-		}
+		!c.isManualApplyGrace(ctx, app) {
 		// Suppress rapid auto-sync: if the last successful sync completed
 		// within the reconcile interval, the OutOfSync is likely a transient
 		// diff artifact (e.g. K8s-injected defaults) rather than real drift.
@@ -305,8 +288,15 @@ func (c *Controller) reconcileStatus(ctx context.Context, appName string) error 
 			InitiatedBy: "auto-sync",
 			Status:      domain.SyncOpPending,
 		}
-		_ = c.store.Sync.Create(ctx, op)
-		c.EnqueueSync(app.Name)
+		// Atomically create the pending op only if no pending/running op exists.
+		created, err := c.store.Sync.CreateIfNotBusy(ctx, op)
+		if err != nil {
+			slog.Warn("auto-sync: create op", "app", app.Name, "err", err)
+			return nil
+		}
+		if created {
+			c.EnqueueSync(app.Name)
+		}
 	}
 	c.reconcileChildResources(ctx, app, rendered.Objects)
 	return nil

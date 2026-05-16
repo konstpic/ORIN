@@ -15,6 +15,18 @@ $(BIN_DIR):
 build: $(BIN_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/k8s-ui
 
+# Build separate binaries for scaled deployment
+build-all: build build-apiserver build-controller build-reposerver
+
+build-apiserver: $(BIN_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-apiserver ./cmd/k8s-ui
+
+build-controller: $(BIN_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-controller ./cmd/k8s-ui
+
+build-reposerver: $(BIN_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-reposerver ./cmd/k8s-ui
+
 test:
 	go test ./... -race -count=1
 

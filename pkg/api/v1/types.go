@@ -296,6 +296,50 @@ type Cluster struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// ClusterHealth is the real-time health probe result for a cluster.
+type ClusterHealth struct {
+	ClusterID   string `json:"clusterId"`
+	ClusterName string `json:"clusterName"`
+	Status      string `json:"status"`      // "Ready", "Unreachable", "Degraded"
+	K8sVersion  string `json:"k8sVersion"`  // e.g. "v1.29.0"
+	NodeCount   int    `json:"nodeCount"`
+	AppCount    int    `json:"appCount"`    // apps targeting this cluster
+	Error       string `json:"error,omitempty"`
+}
+
+// NodeInfo describes a Kubernetes node with resource usage.
+type NodeInfo struct {
+	Name              string    `json:"name"`
+	Roles             []string  `json:"roles"`         // e.g. ["control-plane", "master"]
+	KubeletVersion    string    `json:"kubeletVersion"`
+	OS                string    `json:"os"`            // e.g. "linux"
+	Arch              string    `json:"arch"`          // e.g. "arm64"
+	Status            string    `json:"status"`        // "Ready", "NotReady"
+	CPUCapacity       string    `json:"cpuCapacity"`   // e.g. "8"
+	CPUAllocatable    string    `json:"cpuAllocatable"`// e.g. "7800m"
+	CPUUsed           string    `json:"cpuUsed"`       // e.g. "3200m"
+	CPUUsedPercent    float64   `json:"cpuUsedPercent"`
+	MemCapacity       string    `json:"memCapacity"`   // e.g. "16Gi"
+	MemAllocatable    string    `json:"memAllocatable"`// e.g. "15Gi"
+	MemUsed           string    `json:"memUsed"`       // e.g. "8Gi"
+	MemUsedPercent    float64   `json:"memUsedPercent"`
+	PodCount          int       `json:"podCount"`
+	Pods              []PodRef  `json:"pods"`          // pods scheduled on this node
+	CreatedAt         time.Time `json:"createdAt"`
+}
+
+// PodRef is a lightweight pod reference for node view.
+type PodRef struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+	Kind      string `json:"kind"`       // owner kind (Deployment, StatefulSet, etc.)
+	Owner     string `json:"owner"`      // owner name
+	CPUReq    string `json:"cpuReq"`     // requested CPU
+	MemReq    string `json:"memReq"`     // requested memory
+	Status    string `json:"status"`     // Running, Pending, etc.
+	Health    string `json:"health"`     // Healthy, Progressing, Degraded
+}
+
 // ProjectResourceRule is one entry in a cluster/namespace resource list.
 type ProjectResourceRule struct {
 	Group string `json:"group"`
@@ -515,4 +559,32 @@ type UpdateUserRequest struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Active      *bool  `json:"active,omitempty"`
 	Token       string `json:"token,omitempty"` // set user token (plaintext, will be hashed)
+}
+
+// SystemConfigResponse is the system configuration returned by the API.
+type SystemConfigResponse struct {
+	ReconcileWorkers    int    `json:"reconcileWorkers"`
+	ReconcileResync     string `json:"reconcileResync"`
+	RepoPollInterval    string `json:"repoPollInterval"`
+	RepoRenderTimeout   string `json:"repoRenderTimeout"`
+	SyncApplyRetries    int    `json:"syncApplyRetries"`
+	AutoSyncGracePeriod string `json:"autoSyncGracePeriod"`
+	SyncDenyRangeUtc    string `json:"syncDenyRangeUtc"`
+	AppsCatalogRepoUrl  string `json:"appsCatalogRepoUrl"`
+	AppsCatalogPath     string `json:"appsCatalogPath"`
+	AppsCatalogInterval string `json:"appsCatalogInterval"`
+}
+
+// UpdateSystemConfigRequest is the body for updating system config.
+type UpdateSystemConfigRequest struct {
+	ReconcileWorkers    *int    `json:"reconcileWorkers,omitempty"`
+	ReconcileResync     *string `json:"reconcileResync,omitempty"`
+	RepoPollInterval    *string `json:"repoPollInterval,omitempty"`
+	RepoRenderTimeout   *string `json:"repoRenderTimeout,omitempty"`
+	SyncApplyRetries    *int    `json:"syncApplyRetries,omitempty"`
+	AutoSyncGracePeriod *string `json:"autoSyncGracePeriod,omitempty"`
+	SyncDenyRangeUtc    *string `json:"syncDenyRangeUtc,omitempty"`
+	AppsCatalogRepoUrl  *string `json:"appsCatalogRepoUrl,omitempty"`
+	AppsCatalogPath     *string `json:"appsCatalogPath,omitempty"`
+	AppsCatalogInterval *string `json:"appsCatalogInterval,omitempty"`
 }

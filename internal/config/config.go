@@ -100,7 +100,7 @@ func Load() (*Config, error) {
 	if err := cfg.validate(); err != nil {
 		return nil, err
 	}
-	deny, err := parseSyncDenyRangeUTC(cfg.SyncDenyRangeUTC)
+	deny, err := ParseSyncDenyRangeUTC(cfg.SyncDenyRangeUTC)
 	if err != nil {
 		return nil, err
 	}

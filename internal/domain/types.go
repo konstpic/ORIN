@@ -166,13 +166,14 @@ type Application struct {
 // ApplicationStatus is the hot-path status row, separated from Application
 // to limit row churn during high-frequency reconciles.
 type ApplicationStatus struct {
-	AppID            string       `json:"appId"`
-	SyncStatus       SyncStatus   `json:"syncStatus"`
-	HealthStatus     HealthStatus `json:"healthStatus"`
-	ObservedRevision string       `json:"observedRevision"`
-	LastSyncedAt     *time.Time   `json:"lastSyncedAt,omitempty"`
-	Message          string       `json:"message"`
-	UpdatedAt        time.Time    `json:"updatedAt"`
+	AppID              string       `json:"appId"`
+	SyncStatus         SyncStatus   `json:"syncStatus"`
+	HealthStatus       HealthStatus `json:"healthStatus"`
+	ObservedRevision   string       `json:"observedRevision"`
+	LastSyncedAt       *time.Time   `json:"lastSyncedAt,omitempty"`
+	LastManualApplyAt  *time.Time   `json:"lastManualApplyAt,omitempty"`
+	Message            string       `json:"message"`
+	UpdatedAt          time.Time    `json:"updatedAt"`
 }
 
 // SyncRunRequest is stored with a pending sync and read by the controller.
@@ -278,4 +279,18 @@ type SyncHook struct {
 	Enabled   bool          `json:"enabled"`
 	CreatedAt time.Time     `json:"createdAt"`
 	UpdatedAt time.Time     `json:"updatedAt"`
+}
+
+// SystemConfig holds runtime-overridable system settings.
+type SystemConfig struct {
+	ReconcileWorkers     int           `json:"reconcileWorkers"`
+	ReconcileResync      time.Duration `json:"reconcileResync"`
+	RepoPollInterval     time.Duration `json:"repoPollInterval"`
+	RepoRenderTimeout    time.Duration `json:"repoRenderTimeout"`
+	SyncApplyRetries     int           `json:"syncApplyRetries"`
+	AutoSyncGracePeriod  time.Duration `json:"autoSyncGracePeriod"`
+	SyncDenyRangeUTC     string        `json:"syncDenyRangeUtc"`
+	AppsCatalogRepoURL   string        `json:"appsCatalogRepoUrl"`
+	AppsCatalogPath      string        `json:"appsCatalogPath"`
+	AppsCatalogInterval  time.Duration `json:"appsCatalogInterval"`
 }

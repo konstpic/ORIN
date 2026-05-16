@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -20,7 +21,9 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/controller"
 	"github.com/k8s-ui/k8s-ui/internal/crypto"
 	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/k8s-ui/k8s-ui/internal/grpcserver"
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
+	"github.com/k8s-ui/k8s-ui/internal/leaderelection"
 	"github.com/k8s-ui/k8s-ui/internal/notify"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
 	"github.com/k8s-ui/k8s-ui/internal/rbac"
@@ -44,22 +47,48 @@ func RunAPIServer(ctx context.Context, cfg *config.Config) error {
 	return runHTTPServer(ctx, cfg, deps)
 }
 
-// RunController starts only the controller.
+// RunController starts only the controller with leader election.
+// When multiple controller pods are running, only the leader actively
+// reconciles. If the leader crashes, the lock is released and a standby takes over.
 func RunController(ctx context.Context, cfg *config.Config) error {
 	deps, err := buildDeps(ctx, cfg)
 	if err != nil {
 		return err
 	}
 	defer deps.Close()
-	return deps.Controller.Run(ctx)
+
+	leader := leaderelection.New(deps.Store.Pool, "k8s-ui-controller")
+	slog.Info("controller waiting for leader lock")
+	return leader.WaitAndRun(ctx, 10*time.Second, func(ctx context.Context) error {
+		slog.Info("controller became leader, starting reconcile loops")
+		return deps.Controller.Run(ctx)
+	})
 }
 
-// RunRepoServer is a no-op in the MVP all-in-one mode since the repo server
-// is in-process. Kept as a placeholder for the eventual split-binary mode.
+// RunRepoServer starts the standalone gRPC repo server.
 func RunRepoServer(ctx context.Context, cfg *config.Config) error {
-	slog.Info("repo server is in-process in MVP; subcommand is a placeholder")
-	<-ctx.Done()
-	return nil
+	engine, err := reposerver.NewEngine(cfg.RepoCacheDir)
+	if err != nil {
+		return fmt.Errorf("create engine: %w", err)
+	}
+	svc := grpcserver.New(engine)
+	addr := envOr("REPO_SERVER_ADDR", ":50051")
+	slog.Info("starting repo server", "addr", addr)
+	errCh := make(chan error, 1)
+	go func() { errCh <- svc.ListenAndServe(addr) }()
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errCh:
+		return err
+	}
+}
+
+func envOr(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
 // RunAllInOne is the default MVP entry point.

@@ -1,6 +1,9 @@
 # Multi-stage build that produces a single image carrying the Go binary +
-# pre-built frontend assets. The binary's all-in-one subcommand serves both
-# the API and the SPA from /app/web.
+# pre-built frontend assets. The binary supports multiple subcommands:
+#   all-in-one  — apiserver + controller + reposerver (default)
+#   apiserver   — stateless HTTP + WebSocket gateway (scale to N replicas)
+#   controller  — reconciliation loop with leader election (1 active)
+#   reposerver  — gRPC manifest renderer (HPA, scale to N replicas)
 
 # ----- frontend -----
 FROM node:20-alpine AS web

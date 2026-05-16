@@ -37,6 +37,7 @@ type Store struct {
 	SyncHooks      *SyncHookStore
 	Roles          *RoleStore
 	RoleBindings   *RoleBindingStore
+	SystemConfig   *SystemConfigStore
 }
 
 // Connect opens a pool and constructs the typed repositories.
@@ -61,6 +62,7 @@ func Connect(ctx context.Context, url string) (*Store, error) {
 		SyncHooks:     NewSyncHookStore(pool),
 		Roles:         NewRoleStore(pool),
 		RoleBindings:  NewRoleBindingStore(pool),
+		SystemConfig:  NewSystemConfigStore(pool),
 	}, nil
 }
 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Layers } from "lucide-react";
 import { ResourceTreeView } from "./ResourceTreeView";
 import { ResourceTopologyView } from "./ResourceTopologyView";
+import { NetworkMapView, type NetworkMapResponse } from "./NetworkMapView";
 import { PodDrawer } from "./PodDrawer";
 import { ResourceDetailPanel } from "./ResourceDetailPanel";
 import { ResourceContextMenu, type ContextMenuState, type ResourceAction } from "./ResourceContextMenu";
@@ -21,7 +22,7 @@ type PendingAction = {
 export function ResourceTreePanel({ name, app }: { name: string; app: Application }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [mode, setMode] = useState<"list" | "topology">("topology");
+  const [mode, setMode] = useState<"list" | "topology" | "network">("topology");
   const [groupOtherKinds, setGroupOtherKinds] = useState(true);
   const [expandedReplicaSetUids, setExpandedReplicaSetUids] = useState<Set<string>>(() => new Set());
   const [expandedGroupUids, setExpandedGroupUids] = useState<Set<string>>(() => new Set());
@@ -135,6 +136,12 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
       const tree = q.state.data as ResourceTree | undefined;
       return tree?.activeSync ? 2000 : 7000;
     },
+  });
+
+  const { data: networkData } = useQuery({
+    queryKey: ["app-network-map", name],
+    queryFn: () => api.appNetworkMap(name),
+    enabled: mode === "network",
   });
 
   const onSelect = useCallback((n: ResourceNode) => {
@@ -286,6 +293,17 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             <button
               type="button"
               className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
+                mode === "network"
+                  ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
+                  : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+              onClick={() => setMode("network")}
+            >
+              Network
+            </button>
+            <button
+              type="button"
+              className={`rounded-md px-4 py-2 text-sm font-medium transition-all duration-150 hover:scale-[1.02] active:scale-[0.98] ${
                 mode === "list"
                   ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm border border-[var(--color-border)]"
                   : "text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
@@ -323,6 +341,17 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
               onNodeContextMenu={onContextMenu}
               onNavigateToApp={(appName) => navigate(`/applications/${encodeURIComponent(appName)}`)}
             />
+          ) : mode === "network" ? (
+            networkData ? (
+              <NetworkMapView
+                data={networkData}
+                onNodeSelect={() => {}}
+              />
+            ) : (
+              <div className="flex-1 min-h-0 flex items-center justify-center text-sm text-[var(--color-text-muted)]">
+                Building network map…
+              </div>
+            )
           ) : (
             <div className="flex-1 min-h-0 overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
               <ResourceTreeView roots={listRoots} onNodeSelect={onSelect} onNodeContextMenu={onContextMenu} />

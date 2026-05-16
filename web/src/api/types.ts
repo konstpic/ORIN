@@ -179,6 +179,47 @@ export interface Cluster {
   createdAt: string;
 }
 
+export interface ClusterHealth {
+  clusterId: string;
+  clusterName: string;
+  status: "Ready" | "Unreachable" | "Degraded";
+  k8sVersion: string;
+  nodeCount: number;
+  appCount: number;
+  error?: string;
+}
+
+export interface NodeInfo {
+  name: string;
+  roles: string[];
+  kubeletVersion: string;
+  os: string;
+  arch: string;
+  status: "Ready" | "NotReady";
+  cpuCapacity: string;
+  cpuAllocatable: string;
+  cpuUsed: string;
+  cpuUsedPercent: number;
+  memCapacity: string;
+  memAllocatable: string;
+  memUsed: string;
+  memUsedPercent: number;
+  podCount: number;
+  pods: PodRef[];
+  createdAt: string;
+}
+
+export interface PodRef {
+  name: string;
+  namespace: string;
+  kind: string;
+  owner: string;
+  cpuReq: string;
+  memReq: string;
+  status: string;
+  health: string;
+}
+
 export interface SyncResourceResult {
   group: string;
   version: string;
@@ -300,4 +341,19 @@ export interface UpdateUserRequest {
   displayName?: string;
   active?: boolean;
   token?: string;
+}
+
+// --- System config types ---
+
+export interface SystemConfig {
+  reconcileWorkers: number;
+  reconcileResync: string;
+  repoPollInterval: string;
+  repoRenderTimeout: string;
+  syncApplyRetries: number;
+  autoSyncGracePeriod: string;
+  syncDenyRangeUtc: string;
+  appsCatalogRepoUrl: string;
+  appsCatalogPath: string;
+  appsCatalogInterval: string;
 }

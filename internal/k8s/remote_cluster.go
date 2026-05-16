@@ -27,6 +27,7 @@ type RemoteCluster struct {
 	dyn    dynamic.Interface
 	disco  discovery.CachedDiscoveryInterface
 	mapper meta.RESTMapper
+	cs     kubernetes.Interface
 }
 
 // NewRemoteClusterFromKubeconfigYAML parses a kubeconfig and builds clients.
@@ -54,8 +55,11 @@ func NewRemoteCluster(rc *rest.Config) (*RemoteCluster, error) {
 	}
 	disco := memory.NewMemCacheClient(cs.Discovery())
 	mapper := restmapper.NewDeferredDiscoveryRESTMapper(disco)
-	return &RemoteCluster{dyn: dyn, disco: disco, mapper: mapper}, nil
+	return &RemoteCluster{dyn: dyn, disco: disco, mapper: mapper, cs: cs}, nil
 }
+
+// Clientset returns the typed kubernetes clientset for this cluster.
+func (r *RemoteCluster) Clientset() kubernetes.Interface { return r.cs }
 
 // MappingFor resolves a GVK to a REST mapping.
 func (r *RemoteCluster) MappingFor(gvk schema.GroupVersionKind) (*meta.RESTMapping, error) {

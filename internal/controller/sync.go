@@ -23,16 +23,14 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	if err != nil {
 		return err
 	}
-	op, err := c.store.Sync.NextPending(ctx, app.ID)
+	// Atomically claim the next pending operation using SELECT FOR UPDATE SKIP LOCKED.
+	// This prevents multiple controller pods from claiming the same operation.
+	op, err := c.store.Sync.ClaimNextPending(ctx, app.ID)
 	if err != nil {
 		return err
 	}
 	if op == nil {
 		return nil
-	}
-	op.Status = domain.SyncOpRunning
-	if err := c.store.Sync.Update(ctx, op); err != nil {
-		return err
 	}
 	c.publishSyncEvent(app, op)
 

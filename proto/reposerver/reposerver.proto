@@ -1,0 +1,128 @@
+syntax = "proto3";
+
+package reposerver;
+
+option go_package = "github.com/k8s-ui/k8s-ui/proto/reposerver;reposerverpb";
+
+// RepoServer renders Git repository contents into Kubernetes manifests
+// and provides git introspection (commits, diffs, raw files).
+service RepoServer {
+  // Render manifests for an application at its target revision.
+  rpc Render (RenderRequest) returns (RenderResponse);
+  // Render manifests at an explicit commit SHA.
+  rpc RenderSHA (RenderSHARequest) returns (RenderResponse);
+  // Resolve a symbolic ref (branch/tag) to a commit SHA.
+  rpc ResolveRevision (ResolveRequest) returns (ResolveResponse);
+  // List recent commits for the application's path.
+  rpc ListCommits (ListCommitsRequest) returns (ListCommitsResponse);
+  // Return commit metadata for a specific SHA.
+  rpc GetCommit (GetCommitRequest) returns (GetCommitResponse);
+  // Unified diff of a path between two commits.
+  rpc DiffPaths (DiffPathsRequest) returns (DiffPathsResponse);
+  // Read a raw file at a given revision.
+  rpc ReadRawFile (ReadRawFileRequest) returns (ReadRawFileResponse);
+}
+
+// --- Messages ---
+
+message AppRef {
+  string name = 1;
+  string repo_url = 2;
+  string target_revision = 3;
+  string path = 4;
+  string source_type = 5;            // "kustomize", "helm", "directory"
+  string app_name_label = 6;         // used for tracking labels
+  string dest_namespace = 7;
+  repeated string helm_value_files = 8;
+  string helm_values_json = 9;       // inline helm values (JSON)
+  // Auth credentials (optional, sent per-call for gRPC repo server).
+  string username = 10;
+  string password = 11;
+  string ssh_private_key = 12;
+}
+
+message RenderRequest {
+  AppRef app = 1;
+}
+
+message RenderSHARequest {
+  AppRef app = 1;
+  string sha = 2;
+}
+
+message RenderResponse {
+  string revision = 1;
+  repeated string manifests = 2;     // YAML documents, concatenated
+}
+
+message ResolveRequest {
+  string repo_url = 1;
+  string target_revision = 2;
+  string username = 3;
+  string password = 4;
+  string ssh_private_key = 5;
+}
+
+message ResolveResponse {
+  string sha = 1;
+}
+
+message ListCommitsRequest {
+  string repo_url = 1;
+  string path = 2;
+  int32  limit = 3;
+  string username = 4;
+  string password = 5;
+  string ssh_private_key = 6;
+}
+
+message ListCommitsResponse {
+  repeated CommitInfo commits = 1;
+}
+
+message CommitInfo {
+  string sha = 1;
+  string short_sha = 2;
+  string message = 3;
+  string author = 4;
+  int64  author_date_unix = 5;
+}
+
+message GetCommitRequest {
+  string repo_url = 1;
+  string sha = 2;
+  string username = 3;
+  string password = 4;
+  string ssh_private_key = 5;
+}
+
+message GetCommitResponse {
+  CommitInfo commit = 1;
+}
+
+message DiffPathsRequest {
+  string repo_url = 1;
+  string path = 2;
+  string from_sha = 3;
+  string to_sha = 4;
+  string username = 5;
+  string password = 6;
+  string ssh_private_key = 7;
+}
+
+message DiffPathsResponse {
+  string diff = 1;
+}
+
+message ReadRawFileRequest {
+  string repo_url = 1;
+  string revision = 2;
+  string rel_path = 3;
+  string username = 4;
+  string password = 5;
+  string ssh_private_key = 6;
+}
+
+message ReadRawFileResponse {
+  bytes content = 1;
+}

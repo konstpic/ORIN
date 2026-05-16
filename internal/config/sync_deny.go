@@ -15,7 +15,7 @@ type syncDenyRange struct {
 	enabled  bool
 }
 
-func parseSyncDenyRangeUTC(s string) (*syncDenyRange, error) {
+func ParseSyncDenyRangeUTC(s string) (*syncDenyRange, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return &syncDenyRange{}, nil

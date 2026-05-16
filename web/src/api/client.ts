@@ -4,9 +4,11 @@
 import type {
   Application,
   Cluster,
+  ClusterHealth,
   CreateApplicationRequest,
   DiffResponse,
   GitCommit,
+  NodeInfo,
   PodEvent,
   PodSummary,
   Repository,
@@ -23,7 +25,9 @@ import type {
   UpdateRoleBindingRequest,
   CreateUserRequest,
   UpdateUserRequest,
+  SystemConfig,
 } from "./types";
+import type { NetworkMapResponse } from "../components/NetworkMapView";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -317,4 +321,21 @@ export const api = {
     }),
   deleteUser: (id: string) =>
     request<void>(`/api/v1/users/${id}`, { method: "DELETE" }),
+
+  // System configuration
+  getSystemConfig: () => request<SystemConfig>("/api/v1/system/config"),
+  updateSystemConfig: (body: Record<string, unknown>) =>
+    request<SystemConfig>("/api/v1/system/config", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+
+  // Cluster health & nodes
+  listClusterHealth: () => request<ClusterHealth[]>("/api/v1/clusters/health"),
+  listClusterNodes: (clusterId: string) =>
+    request<NodeInfo[]>(`/api/v1/clusters/${clusterId}/nodes`),
+
+  // Network map
+  appNetworkMap: (appName: string) =>
+    request<NetworkMapResponse>(`/api/v1/applications/${appName}/network-map`),
 };
