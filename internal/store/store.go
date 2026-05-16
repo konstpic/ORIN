@@ -25,14 +25,16 @@ var ErrNotFound = errors.New("not found")
 
 // Store wraps a pgx pool plus the typed repositories.
 type Store struct {
-	Pool         *pgxpool.Pool
-	Applications *Applications
-	Repositories *Repositories
-	Clusters     *Clusters
-	Projects     *Projects
-	Sync         *SyncOperations
-	Status       *Statuses
-	Audit        *Auditor
+	Pool           *pgxpool.Pool
+	Applications   *Applications
+	Repositories   *Repositories
+	Clusters       *Clusters
+	Projects       *Projects
+	Sync           *SyncOperations
+	Status         *Statuses
+	Audit          *Auditor
+	Notifications  *NotificationStore
+	SyncHooks      *SyncHookStore
 }
 
 // Connect opens a pool and constructs the typed repositories.
@@ -45,14 +47,16 @@ func Connect(ctx context.Context, url string) (*Store, error) {
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 	return &Store{
-		Pool:         pool,
-		Applications: &Applications{pool: pool},
-		Repositories: &Repositories{pool: pool},
-		Clusters:     &Clusters{pool: pool},
-		Projects:     &Projects{pool: pool},
-		Sync:         &SyncOperations{pool: pool},
-		Status:       &Statuses{pool: pool},
-		Audit:        &Auditor{pool: pool},
+		Pool:          pool,
+		Applications:  &Applications{pool: pool},
+		Repositories:  &Repositories{pool: pool},
+		Clusters:      &Clusters{pool: pool},
+		Projects:      &Projects{pool: pool},
+		Sync:          &SyncOperations{pool: pool},
+		Status:        &Statuses{pool: pool},
+		Audit:         &Auditor{pool: pool},
+		Notifications: NewNotificationStore(pool),
+		SyncHooks:     NewSyncHookStore(pool),
 	}, nil
 }
 

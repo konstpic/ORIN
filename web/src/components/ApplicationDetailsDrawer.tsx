@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Editor } from "@monaco-editor/react";
 import { api } from "../api/client";
 import type { Application, SyncPolicy, UpdateApplicationRequest } from "../api/types";
 import { HealthBadge, SyncBadge } from "./Badges";
+import { NotificationsPanel } from "./NotificationsPanel";
+import { SyncHooksPanel } from "./SyncHooksPanel";
 
 function fmt(ts: string) {
   try {
@@ -27,6 +30,15 @@ function effectiveCreateNamespace(p: SyncPolicy): boolean {
 }
 
 type Mode = "view" | "edit";
+
+type AppTab = "details" | "helmValues" | "notifications" | "hooks";
+
+const TAB_LABEL: Record<AppTab, string> = {
+  details: "DETAILS",
+  helmValues: "HELM VALUES",
+  notifications: "NOTIFICATIONS",
+  hooks: "HOOKS",
+};
 
 type EditState = {
   repoUrl: string;
@@ -101,15 +113,34 @@ export function ApplicationDetailsDrawer({
   const [mode, setMode] = useState<Mode>("view");
   const [state, setState] = useState<EditState>(() => buildState(app));
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<AppTab>("details");
+  const [helmValuesText, setHelmValuesText] = useState("");
+  const [helmValuesSaved, setHelmValuesSaved] = useState("");
+  const [helmSaveError, setHelmSaveError] = useState<string | null>(null);
   const qc = useQueryClient();
+
+  const usesHelm = app.source.helmValues !== undefined && app.source.helmValues !== null;
+
+  const helmValuesJson = useMemo(() => {
+    if (!usesHelm) return "{}";
+    try {
+      return JSON.stringify(app.source.helmValues, null, 2);
+    } catch {
+      return "{}";
+    }
+  }, [app.source.helmValues, usesHelm]);
 
   useEffect(() => {
     if (open) {
       setMode("view");
       setState(buildState(app));
       setError(null);
+      setActiveTab("details");
+      setHelmValuesText(helmValuesJson);
+      setHelmValuesSaved(helmValuesJson);
+      setHelmSaveError(null);
     }
-  }, [open, app]);
+  }, [open, app, helmValuesJson]);
 
   const saveMut = useMutation({
     mutationFn: () => api.updateApp(app.name, stateToPayload(state, app)),
@@ -121,6 +152,28 @@ export function ApplicationDetailsDrawer({
       setError(null);
     },
     onError: (e) => setError((e as Error).message),
+  });
+
+  const helmSaveMut = useMutation({
+    mutationFn: () => {
+      const parsed = JSON.parse(helmValuesText);
+      return api.updateApp(app.name, {
+        source: {
+          ...app.source,
+          helmValues: parsed,
+        },
+        destination: app.destination,
+        syncPolicy: app.syncPolicy,
+      });
+    },
+    onSuccess: (next) => {
+      qc.setQueryData(["app", app.name], next);
+      qc.invalidateQueries({ queryKey: ["apps"] });
+      qc.invalidateQueries({ queryKey: ["app", app.name] });
+      setHelmValuesSaved(helmValuesText);
+      setHelmSaveError(null);
+    },
+    onError: (e) => setHelmSaveError((e as Error).message),
   });
 
   if (!open) return null;
@@ -180,8 +233,26 @@ export function ApplicationDetailsDrawer({
           <div className="shrink-0 px-5 py-2 bg-red-500/10 border-b border-red-500/30 text-xs text-red-300">{error}</div>
         )}
 
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-sm space-y-6">
-          <Section title="Source">
+        <div className="shrink-0 flex border-b border-[var(--color-border)] px-5 pt-3 gap-1">
+          {(["details", ...(usesHelm ? (["helmValues"] as const) : [])] as AppTab[]).map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`px-3 py-2 text-[10px] font-semibold uppercase tracking-wide rounded-t-md border-b-2 -mb-px transition-all duration-150 ${
+                activeTab === id
+                  ? "border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-surface)]"
+                  : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+              }`}
+            >
+              {TAB_LABEL[id]}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === "details" && (
+          <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 text-sm space-y-6">
+            <Section title="Source">
             {editing ? (
               <div className="grid gap-3 sm:grid-cols-[140px_1fr]">
                 <Label>Repository</Label>
@@ -371,6 +442,86 @@ export function ApplicationDetailsDrawer({
             </dl>
           </Section>
         </div>
+        )}
+
+        {activeTab === "helmValues" && (
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            {!usesHelm ? (
+              <div className="flex-1 p-6 text-sm space-y-3 overflow-y-auto">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Helm Values</h3>
+                <p className="text-[var(--color-text-muted)]">
+                  This application does not have Helm values configured.
+                </p>
+                <p className="text-[var(--color-text-muted)] text-xs">
+                  To enable Helm values, edit the application source and set <code className="bg-[var(--color-surface-muted)] px-1 py-0.5 rounded text-[var(--color-accent)]">helmValues</code> with your desired override values.
+                  You can also specify Helm value files using <code className="bg-[var(--color-surface-muted)] px-1 py-0.5 rounded text-[var(--color-accent)]">helmValueFiles</code> in the source configuration.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="shrink-0 px-3 py-2 flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                  <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] flex-1 min-w-0">
+                    Edit Helm Values (JSON)
+                  </span>
+                  {helmSaveError && (
+                    <span className="text-[11px] text-red-300 truncate max-w-[300px]" title={helmSaveError}>
+                      {helmSaveError}
+                    </span>
+                  )}
+                  {helmSaveMut.isSuccess && !helmSaveError && (
+                    <span className="text-[11px] text-green-300">Saved.</span>
+                  )}
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] border border-[var(--color-border)] text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+                    onClick={() => { setHelmValuesText(helmValuesSaved); setHelmSaveError(null); }}
+                    disabled={helmSaveMut.isPending}
+                    title="Reset to last saved"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] bg-[var(--color-accent)] text-[#0a0e14] font-semibold hover:brightness-110 disabled:opacity-50"
+                    onClick={() => {
+                      try {
+                        JSON.parse(helmValuesText);
+                        helmSaveMut.mutate();
+                      } catch (e) {
+                        setHelmSaveError(`Invalid JSON: ${(e as Error).message}`);
+                      }
+                    }}
+                    disabled={helmSaveMut.isPending}
+                  >
+                    {helmSaveMut.isPending ? "Saving…" : "Save"}
+                  </button>
+                </div>
+                <div className="flex-1 min-h-0">
+                  <Editor
+                    height="100%"
+                    theme="vs-dark"
+                    language="json"
+                    value={helmValuesText}
+                    onChange={(v) => { setHelmValuesText(v ?? ""); setHelmSaveError(null); }}
+                    options={{ minimap: { enabled: false }, wordWrap: "on", scrollBeyondLastLine: false, tabSize: 2 }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === "notifications" && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <NotificationsPanel appName={app.name} />
+          </div>
+        )}
+
+        {activeTab === "hooks" && (
+          <div className="flex-1 min-h-0 overflow-y-auto p-4">
+            <SyncHooksPanel appName={app.name} />
+          </div>
+        )}
       </div>
     </div>
   );

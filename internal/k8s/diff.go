@@ -256,6 +256,11 @@ func normalizeDeployment(u *unstructured.Unstructured) {
 	unstructured.RemoveNestedField(u.Object, "spec", "progressDeadlineSeconds")
 	unstructured.RemoveNestedField(u.Object, "spec", "revisionHistoryLimit")
 	unstructured.RemoveNestedField(u.Object, "spec", "strategy")
+
+	// Remove empty pod-level securityContext — K8s injects this on all pods
+	if sc, ok, _ := unstructured.NestedMap(u.Object, "spec", "template", "spec", "securityContext"); ok && len(sc) == 0 {
+		unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "securityContext")
+	}
 	
 	// Remove pod template defaults
 	unstructured.RemoveNestedField(u.Object, "spec", "template", "spec", "dnsPolicy")
@@ -271,6 +276,13 @@ func normalizeDeployment(u *unstructured.Unstructured) {
 				delete(container, "imagePullPolicy")
 				delete(container, "terminationMessagePath")
 				delete(container, "terminationMessagePolicy")
+
+				// Remove empty securityContext — K8s injects this on all pods
+				if sc, ok := container["securityContext"]; ok {
+					if scMap, ok := sc.(map[string]interface{}); ok && len(scMap) == 0 {
+						delete(container, "securityContext")
+					}
+				}
 				
 				// Normalize probes - remove default fields
 				if liveness, ok := container["livenessProbe"].(map[string]interface{}); ok {

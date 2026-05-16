@@ -18,6 +18,7 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/crypto"
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
 	"github.com/k8s-ui/k8s-ui/internal/metrics"
+	"github.com/k8s-ui/k8s-ui/internal/notify"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
 	"github.com/k8s-ui/k8s-ui/internal/store"
 	"github.com/k8s-ui/k8s-ui/internal/ws"
@@ -35,6 +36,7 @@ type ServerOptions struct {
 	Repo       *reposerver.Server
 	Hub        *ws.Hub
 	Controller *controller.Controller
+	Notifier   *notify.Dispatcher
 }
 
 // Server bundles options + handlers for the HTTP gateway.
@@ -102,6 +104,18 @@ func (s *Server) Handler() http.Handler {
 		r.Delete("/api/v1/applications/{name}/live-resource", s.deleteLiveResource)
 		r.Post("/api/v1/applications/{name}/live-resource/sync", s.syncLiveResource)
 		r.Post("/api/v1/applications/{name}/live-resource/restart", s.restartLiveResource)
+
+		// Notification configs per application
+		r.Get("/api/v1/applications/{name}/notifications", s.listNotificationConfigs)
+		r.Post("/api/v1/applications/{name}/notifications", s.createNotificationConfig)
+		r.Put("/api/v1/applications/{name}/notifications/{configId}", s.updateNotificationConfig)
+		r.Delete("/api/v1/applications/{name}/notifications/{configId}", s.deleteNotificationConfig)
+
+		// Sync hooks per application
+		r.Get("/api/v1/applications/{name}/hooks", s.listSyncHooks)
+		r.Post("/api/v1/applications/{name}/hooks", s.createSyncHook)
+		r.Put("/api/v1/applications/{name}/hooks/{hookId}", s.updateSyncHook)
+		r.Delete("/api/v1/applications/{name}/hooks/{hookId}", s.deleteSyncHook)
 
 		r.Get("/api/v1/repositories", s.listRepositories)
 		r.Post("/api/v1/repositories", s.createRepository)

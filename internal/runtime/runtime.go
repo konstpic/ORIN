@@ -19,6 +19,7 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/crypto"
 	"github.com/k8s-ui/k8s-ui/internal/domain"
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
+	"github.com/k8s-ui/k8s-ui/internal/notify"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
 	"github.com/k8s-ui/k8s-ui/internal/store"
 	"github.com/k8s-ui/k8s-ui/internal/ws"
@@ -94,6 +95,7 @@ type deps struct {
 	Repo       *reposerver.Server
 	Hub        *ws.Hub
 	Controller *controller.Controller
+	Notifier   *notify.Dispatcher
 }
 
 func (d *deps) Close() {
@@ -134,8 +136,8 @@ func buildDeps(ctx context.Context, cfg *config.Config) (*deps, error) {
 	}
 
 	hub := ws.NewHub()
-
-	ctrl := controller.New(cfg, st, cm, rs, hub, cipher)
+	notifier := notify.New()
+	ctrl := controller.New(cfg, st, cm, rs, hub, cipher, notifier)
 
 	return &deps{
 		Store:      st,
@@ -144,6 +146,7 @@ func buildDeps(ctx context.Context, cfg *config.Config) (*deps, error) {
 		Repo:       rs,
 		Hub:        hub,
 		Controller: ctrl,
+		Notifier:   notifier,
 	}, nil
 }
 
@@ -156,6 +159,7 @@ func runHTTPServer(ctx context.Context, cfg *config.Config, d *deps) error {
 		Repo:       d.Repo,
 		Hub:        d.Hub,
 		Controller: d.Controller,
+		Notifier:   d.Notifier,
 	}).Handler()
 
 	srv := &http.Server{

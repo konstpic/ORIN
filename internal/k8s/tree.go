@@ -75,9 +75,23 @@ func (cm *ClusterManager) BuildTree(ctx context.Context, appName, namespace stri
 		rootUIDs[string(r.GetUID())] = struct{}{}
 	}
 
-	// Filter out stale ReplicaSets that are owned by a tracked Deployment but
-	// have zero desired replicas (i.e. old RS left behind after a rollout).
-	// They would otherwise appear as empty orphan nodes in the topology.
+	// Filter out stale ReplicaSets from the children map. Old ReplicaSets
+	// left behind after a rollout have spec.replicas == 0 but still carry
+	// the tracking label and ownerReferences. If not filtered here, they
+	// appear as empty child nodes under the Deployment in the resource tree.
+	for uid, objs := range children {
+		var kept []*unstructured.Unstructured
+		for _, o := range objs {
+			if isStaleReplicaSet(o, rootUIDs) {
+				continue
+			}
+			kept = append(kept, o)
+		}
+		children[uid] = kept
+	}
+
+	// Filter out stale ReplicaSets from roots (they may also carry the
+	// tracking label and be listed as roots).
 	var filteredRoots []*unstructured.Unstructured
 	for _, r := range roots {
 		if isStaleReplicaSet(r, rootUIDs) {

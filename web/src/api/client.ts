@@ -6,6 +6,7 @@ import type {
   Cluster,
   CreateApplicationRequest,
   DiffResponse,
+  GitCommit,
   PodEvent,
   PodSummary,
   Repository,
@@ -97,6 +98,34 @@ export const api = {
     request<{ revision: string; manifests: unknown[] }>(`/api/v1/applications/${name}/manifests`),
   appHistory: (name: string) =>
     request<SyncOperation[]>(`/api/v1/applications/${name}/history`),
+
+  appRevisions: (name: string, limit = 50) =>
+    request<{ commits: GitCommit[] }>(
+      `/api/v1/applications/${encodeURIComponent(name)}/revisions?limit=${limit}`,
+    ),
+
+  appRevisionDiff: (name: string, from: string, to: string) =>
+    request<{ diff: string }>(
+      `/api/v1/applications/${encodeURIComponent(name)}/revision-diff?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    ),
+
+  appRollback: (name: string, revision: string) =>
+    request<{ targetRevision: string }>(
+      `/api/v1/applications/${encodeURIComponent(name)}/rollback`,
+      {
+        method: "POST",
+        body: JSON.stringify({ revision }),
+      },
+    ),
+
+  syncAppDryRun: (name: string, revision?: string) =>
+    request<{ syncId: string; status: string }>(
+      `/api/v1/applications/${encodeURIComponent(name)}/sync`,
+      {
+        method: "POST",
+        body: JSON.stringify({ dryRun: true, revision }),
+      },
+    ),
 
   applyLiveResource: (appName: string, yaml: string) =>
     request<Record<string, unknown>>(`/api/v1/applications/${encodeURIComponent(appName)}/live-resource`, {
@@ -223,4 +252,12 @@ export const api = {
     request<void>(`/api/v1/repositories/${id}`, { method: "DELETE" }),
 
   listClusters: () => request<Cluster[]>("/api/v1/clusters"),
+
+  // Generic HTTP helpers for extension endpoints
+  get: <T>(path: string) => request<T>(path),
+  post: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "POST", body: JSON.stringify(body) }),
+  put: <T>(path: string, body: unknown) =>
+    request<T>(path, { method: "PUT", body: JSON.stringify(body) }),
+  del: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };

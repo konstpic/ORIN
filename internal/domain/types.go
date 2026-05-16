@@ -226,3 +226,56 @@ type AuditEntry struct {
 	Resource string          `json:"resource"`
 	Payload  json.RawMessage `json:"payload,omitempty"`
 }
+
+// NotificationEventType enumerates the events that can trigger a notification.
+type NotificationEventType string
+
+const (
+	EventSyncSucceeded    NotificationEventType = "sync_succeeded"
+	EventSyncFailed       NotificationEventType = "sync_failed"
+	EventHealthDegraded   NotificationEventType = "health_degraded"
+	EventHealthRecovered  NotificationEventType = "health_recovered"
+	EventAppOutOfSync     NotificationEventType = "app_out_of_sync"
+	EventAppSynced        NotificationEventType = "app_synced"
+)
+
+// NotificationType is the delivery channel type.
+type NotificationType string
+
+const (
+	NotificationTypeWebhook NotificationType = "webhook"
+	NotificationTypeSlack   NotificationType = "slack"
+)
+
+// NotificationConfig stores webhook/Slack delivery config per application.
+type NotificationConfig struct {
+	ID        string                 `json:"id"`
+	AppID     string                 `json:"appId"`
+	Name      string                 `json:"name"`
+	Type      NotificationType       `json:"type"`
+	URL       string                 `json:"url"`
+	Events    []NotificationEventType `json:"events"`
+	Enabled   bool                   `json:"enabled"`
+	CreatedAt time.Time              `json:"createdAt"`
+}
+
+// SyncHookPhase defines when a hook Job runs during the sync lifecycle.
+type SyncHookPhase string
+
+const (
+	HookPreSync  SyncHookPhase = "PreSync"
+	HookPostSync SyncHookPhase = "PostSync"
+	HookSyncFail SyncHookPhase = "SyncFail"
+)
+
+// SyncHook stores a Kubernetes manifest (Job/Pod) to run at a specific sync phase.
+type SyncHook struct {
+	ID        string        `json:"id"`
+	AppID     string        `json:"appId"`
+	Name      string        `json:"name"`
+	Phase     SyncHookPhase `json:"phase"`
+	YAML      string        `json:"yaml"`
+	Enabled   bool          `json:"enabled"`
+	CreatedAt time.Time     `json:"createdAt"`
+	UpdatedAt time.Time     `json:"updatedAt"`
+}

@@ -24,10 +24,51 @@ type CommitInfo struct {
 
 // RecentCommits walks the history from HEAD limited to max entries,
 // optionally restricted to commits that touched relPath (repository-relative).
+// Uses the git CLI for reliable directory-scoped filtering.
 func (c *Cache) RecentCommits(bareDir, relPath string, max int) ([]CommitInfo, error) {
 	if max <= 0 || max > 200 {
 		max = 50
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	args := []string{"-C", bareDir, "log", "--max-count", fmt.Sprintf("%d", max), "--format=%H%n%h%n%an%n%aI%n%s"}
+	if relPath != "" && relPath != "." && relPath != "/" {
+		args = append(args, "--", relPath)
+	}
+
+	cmd := exec.CommandContext(ctx, "git", args...)
+	out, err := cmd.Output()
+	if err != nil {
+		// Fall back to go-git if CLI fails (e.g., on path filter with no results)
+		return c.recentCommitsGoGit(bareDir, relPath, max)
+	}
+
+	var result []CommitInfo
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	for len(lines) >= 5 {
+		sha := lines[0]
+		shortSha := lines[1]
+		author := lines[2]
+		dateStr := lines[3]
+		msg := lines[4]
+		lines = lines[5:]
+
+		date, _ := time.Parse(time.RFC3339, dateStr)
+		result = append(result, CommitInfo{
+			SHA:        sha,
+			ShortSHA:   shortSha,
+			Message:    msg,
+			Author:     author,
+			AuthorDate: date.UTC(),
+		})
+	}
+	return result, nil
+}
+
+// recentCommitsGoGit is a fallback that uses go-git when the CLI is unavailable.
+// Note: go-git's FileName filter only works for files, not directories.
+func (c *Cache) recentCommitsGoGit(bareDir, relPath string, max int) ([]CommitInfo, error) {
 	repo, err := gogit.PlainOpen(bareDir)
 	if err != nil {
 		return nil, err

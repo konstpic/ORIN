@@ -8,6 +8,7 @@ import {
   History,
   MoreHorizontal,
   RefreshCcw,
+  RotateCcw,
   Settings,
   Trash2,
   PlayCircle,
@@ -24,6 +25,7 @@ import { ApplicationDetailsDrawer } from "../components/ApplicationDetailsDrawer
 import { ResourceTreePanel } from "../components/ResourceTreePanel";
 import { DiffDrawer } from "../components/DiffDrawer";
 import { HistoryDrawer } from "../components/HistoryDrawer";
+import { RollbackDrawer } from "../components/RollbackDrawer";
 import { OutOfSyncDrawer } from "../components/OutOfSyncDrawer";
 import { useAuth } from "../state/auth";
 import { openAppEvents } from "../api/ws";
@@ -113,6 +115,7 @@ export function AppDetailPage() {
 
   const diffOpen = searchParams.get("diff") === "1";
   const historyOpen = searchParams.get("history") === "1";
+  const rollbackOpen = searchParams.get("rollback") === "1";
   const outOfSyncOpen = searchParams.get("outOfSync") === "1";
 
   const setDiffOpen = useCallback(
@@ -130,6 +133,16 @@ export function AppDetailPage() {
       const next = new URLSearchParams(searchParams);
       if (open) next.set("history", "1");
       else next.delete("history");
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
+  const setRollbackOpen = useCallback(
+    (open: boolean) => {
+      const next = new URLSearchParams(searchParams);
+      if (open) next.set("rollback", "1");
+      else next.delete("rollback");
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams],
@@ -248,6 +261,14 @@ export function AppDetailPage() {
             >
               <History className="size-3.5" />
               History
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-border-strong)] transition-all duration-150 hover:scale-[1.02] active:scale-[0.98]"
+              onClick={() => setRollbackOpen(true)}
+            >
+              <RotateCcw className="size-3.5" />
+              Rollback
             </button>
             <button
               type="button"
@@ -461,6 +482,7 @@ export function AppDetailPage() {
       <ApplicationDetailsDrawer app={app} open={detailsOpen} onClose={() => setDetailsOpen(false)} />
       <DiffDrawer appName={name} open={diffOpen} onClose={() => setDiffOpen(false)} />
       <HistoryDrawer appName={name} open={historyOpen} onClose={() => setHistoryOpen(false)} />
+      <RollbackDrawer appName={name} open={rollbackOpen} onClose={() => setRollbackOpen(false)} />
       <OutOfSyncDrawer appName={name} open={outOfSyncOpen} onClose={() => setOutOfSyncOpen(false)} />
     </div>
   );

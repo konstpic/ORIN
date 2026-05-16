@@ -111,7 +111,8 @@ function compactManyPodsUnderNode(
   const pods = mappedChildren.filter((c) => c.kind === "Pod");
   const nonPods = mappedChildren.filter((c) => c.kind !== "Pod");
 
-  if (isPodParent && pods.length >= POD_GROUP_MIN_PODS && !expandedGroupParentUids.has(node.uid)) {
+  // Only compact pods when grouping is enabled; otherwise show them individually
+  if (groupOtherKinds && isPodParent && pods.length >= POD_GROUP_MIN_PODS && !expandedGroupParentUids.has(node.uid)) {
     const childrenAfterPodGroup = nonPods.length > 0 ? processSiblings(nonPods, node.uid, expandedGroupParentUids, groupOtherKinds) : undefined;
     return {
       ...node,

@@ -20,6 +20,7 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/domain"
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
 	"github.com/k8s-ui/k8s-ui/internal/manifest"
+	"github.com/k8s-ui/k8s-ui/internal/notify"
 	"github.com/k8s-ui/k8s-ui/internal/reposerver"
 	"github.com/k8s-ui/k8s-ui/internal/store"
 	"github.com/k8s-ui/k8s-ui/internal/ws"
@@ -33,6 +34,7 @@ type Controller struct {
 	repo  *reposerver.Server
 	hub   *ws.Hub
 	cipher *crypto.Cipher
+	notifier *notify.Dispatcher
 
 	remoteMu      sync.Mutex
 	remoteClients map[string]*k8s.RemoteCluster
@@ -51,7 +53,7 @@ type Controller struct {
 }
 
 // New constructs the Controller.
-func New(cfg *config.Config, st *store.Store, cm *k8s.ClusterManager, rs *reposerver.Server, hub *ws.Hub, cipher *crypto.Cipher) *Controller {
+func New(cfg *config.Config, st *store.Store, cm *k8s.ClusterManager, rs *reposerver.Server, hub *ws.Hub, cipher *crypto.Cipher, notifier *notify.Dispatcher) *Controller {
 	return &Controller{
 		cfg:            cfg,
 		store:          st,
@@ -59,6 +61,7 @@ func New(cfg *config.Config, st *store.Store, cm *k8s.ClusterManager, rs *repose
 		repo:           rs,
 		hub:            hub,
 		cipher:         cipher,
+		notifier:       notifier,
 		remoteClients:  make(map[string]*k8s.RemoteCluster),
 		statusQ:        newWorkqueue(),
 		syncQ:          newWorkqueue(),
@@ -286,6 +289,15 @@ func (c *Controller) reconcileStatus(ctx context.Context, appName string) error 
 		}
 		if busy {
 			return nil
+		}
+		// Suppress rapid auto-sync: if the last successful sync completed
+		// within the reconcile interval, the OutOfSync is likely a transient
+		// diff artifact (e.g. K8s-injected defaults) rather than real drift.
+		if prev != nil && prev.LastSyncedAt != nil {
+			elapsed := time.Since(*prev.LastSyncedAt)
+			if elapsed < c.cfg.ReconcileResync {
+				return nil
+			}
 		}
 		op := &domain.SyncOperation{
 			AppID:       app.ID,

@@ -22,6 +22,13 @@ function manifestRows(manifests: unknown[]): ManifestRow[] {
   });
 }
 
+type DryRunResult = {
+  syncId: string;
+  status: string;
+  /** Populated after dry-run completes */
+  resources?: Array<{ key: string; kind: string; name: string; namespace: string; status: string; message: string }>;
+};
+
 export type SyncSubmitPayload = {
   prune: boolean;
   dryRun: boolean;
@@ -45,6 +52,9 @@ export function SyncPreviewDrawer({
   const [prune, setPrune] = useState(false);
   const [dryRun, setDryRun] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [dryRunResult, setDryRunResult] = useState<DryRunResult | null>(null);
+  const [dryRunInProgress, setDryRunInProgress] = useState(false);
+  const [dryRunError, setDryRunError] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["app-manifests", appName],
@@ -79,6 +89,9 @@ export function SyncPreviewDrawer({
     if (!open || !allKeys.length) return;
     setPrune(false);
     setDryRun(false);
+    setDryRunResult(null);
+    setDryRunInProgress(false);
+    setDryRunError(null);
     setSelected(Object.fromEntries(allKeys.map((k) => [k, true])));
   }, [open, appName, data?.revision, allKeys.join("|")]);
 
@@ -102,12 +115,55 @@ export function SyncPreviewDrawer({
     setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const handleDryRun = async () => {
+    setDryRunResult(null);
+    setDryRunError(null);
+    setDryRunInProgress(true);
+    try {
+      const res = await api.syncAppDryRun(appName, data?.revision);
+      // The backend returns syncId + status. If resources come back, use them;
+      // otherwise we build a minimal result from what we know.
+      setDryRunResult({
+        syncId: res.syncId,
+        status: res.status,
+        resources: (res as Record<string, unknown>).resources
+          ? ((res as Record<string, unknown>).resources as Array<{
+              group: string;
+              version: string;
+              kind: string;
+              namespace?: string;
+              name: string;
+              status: string;
+              message: string;
+            }>).map((r) => ({
+              key: `${r.group}/${r.version}/${r.kind}/${r.namespace ?? ""}/${r.name}`,
+              kind: r.kind,
+              name: r.name,
+              namespace: r.namespace ?? "",
+              status: r.status,
+              message: r.message,
+            }))
+          : undefined,
+      });
+    } catch (e) {
+      setDryRunError(e instanceof Error ? e.message : "Dry run failed");
+    } finally {
+      setDryRunInProgress(false);
+    }
+  };
+
   const handleConfirm = () => {
+    if (dryRun && !dryRunResult) {
+      // First click in dry-run mode: run the dry-run preview
+      handleDryRun();
+      return;
+    }
+    // Either not dry-run mode, or dry-run already completed → proceed with real sync
     const resources =
       selectedKeys.length > 0 && selectedKeys.length < allKeys.length ? selectedKeys : undefined;
     onConfirm({
       prune,
-      dryRun,
+      dryRun: false,
       resources: resources?.length ? resources : undefined,
     });
   };
@@ -144,7 +200,7 @@ export function SyncPreviewDrawer({
             Prune (respects policy; one-time when checked)
           </label>
           <label className="flex items-center gap-2 text-sm text-[var(--color-text)] cursor-pointer">
-            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} />
+            <input type="checkbox" checked={dryRun} onChange={(e) => setDryRun(e.target.checked)} disabled={dryRunInProgress} />
             Dry run (server-side apply dry-run; no cluster changes)
           </label>
         </div>
@@ -165,6 +221,79 @@ export function SyncPreviewDrawer({
             Out of sync only
           </button>
         </div>
+
+        {/* Dry-run results panel */}
+        {dryRun && (
+          <div className="px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
+            {dryRunInProgress && (
+              <div className="text-sm text-[var(--color-text-muted)] flex items-center gap-2">
+                <span className="inline-block size-3 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+                Running dry-run…
+              </div>
+            )}
+            {dryRunError && !dryRunInProgress && (
+              <div>
+                <div className="text-sm text-red-400 font-medium">Dry-run failed</div>
+                <div className="text-xs text-red-400/80 mt-1 font-mono">{dryRunError}</div>
+                <button
+                  type="button"
+                  className="mt-2 text-xs text-[var(--color-accent)] underline hover:no-underline"
+                  onClick={() => { setDryRunError(null); handleDryRun(); }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {dryRunResult && !dryRunInProgress && (
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-emerald-400">Dry-run complete</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] font-mono">sync: {dryRunResult.syncId.slice(0, 12)}</span>
+                </div>
+                {dryRunResult.resources && dryRunResult.resources.length > 0 ? (
+                  <>
+                    {(() => {
+                      const counts = { Applied: 0, Pruned: 0, Failed: 0, DryRun: 0, Other: 0 };
+                      for (const r of dryRunResult.resources) {
+                        if (r.status === "Applied") counts.Applied++;
+                        else if (r.status === "Pruned") counts.Pruned++;
+                        else if (r.status === "Failed") counts.Failed++;
+                        else if (r.status === "DryRun") counts.DryRun++;
+                        else counts.Other++;
+                      }
+                      return (
+                        <div className="flex flex-wrap gap-2 mb-2 text-xs">
+                          <span className="text-emerald-400">{counts.Applied} would be Applied</span>
+                          {counts.Pruned > 0 && <span className="text-amber-400">{counts.Pruned} would be Pruned</span>}
+                          {counts.Failed > 0 && <span className="text-red-400">{counts.Failed} would Fail</span>}
+                        </div>
+                      );
+                    })()}
+                    <div className="max-h-48 overflow-y-auto space-y-1 border border-[var(--color-border)] rounded-md p-2">
+                      {dryRunResult.resources.map((r) => {
+                        const statusColor =
+                          r.status === "Applied" ? "text-emerald-400" :
+                          r.status === "Pruned" ? "text-amber-400" :
+                          r.status === "Failed" ? "text-red-400" :
+                          "text-[var(--color-text-muted)]";
+                        return (
+                          <div key={r.key} className="flex items-center gap-2 text-xs font-mono">
+                            <span className={statusColor}>{r.status}</span>
+                            <span className="text-[var(--color-text)]">{r.kind}</span>
+                            <span className="text-[var(--color-text-muted)]">{r.name}</span>
+                            {r.namespace && <span className="text-[var(--color-text-muted)]">· {r.namespace}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-sm text-[var(--color-text-muted)]">No resources selected for dry-run.</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
           {isLoading && <div className="text-sm text-[var(--color-text-muted)]">Loading manifests…</div>}
@@ -201,6 +330,7 @@ export function SyncPreviewDrawer({
           <span className="text-xs text-[var(--color-text-muted)]">
             {selectedKeys.length}/{allKeys.length} selected
             {partial ? " · partial sync" : ""}
+            {dryRun && dryRunResult && !dryRunInProgress ? " · dry-run done" : ""}
           </span>
           <div className="flex gap-2">
             <button
@@ -210,14 +340,34 @@ export function SyncPreviewDrawer({
             >
               Cancel
             </button>
-            <button
-              type="button"
-              className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[#0a0e14] hover:brightness-110 disabled:opacity-50"
-              disabled={isSubmitting || isLoading || !!error || rows.length === 0 || selectedKeys.length === 0}
-              onClick={handleConfirm}
-            >
-              {isSubmitting ? "Synchronizing…" : "Synchronize"}
-            </button>
+            {dryRun && dryRunResult && !dryRunInProgress ? (
+              <>
+                <button
+                  type="button"
+                  className="rounded-md border border-[var(--color-border)] bg-[var(--color-input-bg)] px-3 py-2 text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+                  onClick={() => { setDryRunResult(null); setDryRunError(null); }}
+                >
+                  Re-run dry-run
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[#0a0e14] hover:brightness-110 disabled:opacity-50"
+                  disabled={isSubmitting || isLoading || !!error || rows.length === 0 || selectedKeys.length === 0}
+                  onClick={handleConfirm}
+                >
+                  {isSubmitting ? "Synchronizing…" : "Proceed with real sync"}
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-medium text-[#0a0e14] hover:brightness-110 disabled:opacity-50"
+                disabled={isSubmitting || isLoading || !!error || rows.length === 0 || selectedKeys.length === 0 || dryRunInProgress}
+                onClick={handleConfirm}
+              >
+                {isSubmitting ? "Synchronizing…" : dryRunInProgress ? "Running dry-run…" : dryRun ? "Run Dry Run" : "Synchronize"}
+              </button>
+            )}
           </div>
         </div>
       </aside>

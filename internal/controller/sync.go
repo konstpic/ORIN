@@ -14,6 +14,7 @@ import (
 	"github.com/k8s-ui/k8s-ui/internal/k8s"
 	"github.com/k8s-ui/k8s-ui/internal/manifest"
 	"github.com/k8s-ui/k8s-ui/internal/metrics"
+	"github.com/k8s-ui/k8s-ui/internal/notify"
 )
 
 // runSync executes the next pending SyncOperation for the application.
@@ -76,6 +77,16 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	}
 
 	dry := op.Request.DryRun
+
+	// Run PreSync hooks before applying main resources
+	if !dry {
+		if err := c.executeHooks(ctx, app, domain.HookPreSync, op, kc); err != nil {
+			c.finishOp(ctx, app, op, domain.SyncOpFailed, fmt.Sprintf("pre-sync hook failed: %v", err))
+			_ = c.runSyncFailHooks(ctx, app, op, kc)
+			return err
+		}
+	}
+
 	if app.SyncPolicy.EffectiveCreateNamespace() && app.DestNamespace != "" {
 		meta := map[string]interface{}{
 			"name": app.DestNamespace,
@@ -120,6 +131,20 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 
 	finalStatus := computeFinalStatus(op)
 	opMsg := syncPartialFailureMessage(op, finalStatus)
+
+	// Run PostSync hooks after successful sync
+	if finalStatus == domain.SyncOpSucceeded && !op.Request.DryRun {
+		if err := c.executeHooks(ctx, app, domain.HookPostSync, op, kc); err != nil {
+			opMsg = fmt.Sprintf("post-sync hook failed: %v", err)
+			finalStatus = domain.SyncOpFailed
+		}
+	}
+
+	// Run SyncFail hooks on sync failure
+	if finalStatus == domain.SyncOpFailed && !op.Request.DryRun {
+		_ = c.runSyncFailHooks(ctx, app, op, kc)
+	}
+
 	c.finishOp(ctx, app, op, finalStatus, opMsg)
 	
 	// Immediately compute health from live resources instead of defaulting to Progressing
@@ -162,6 +187,34 @@ func (c *Controller) finishOp(ctx context.Context, app *domain.Application, op *
 	_ = c.store.Sync.Update(ctx, op)
 	c.publishSyncEvent(app, op)
 	metrics.SyncOperations.WithLabelValues(string(status)).Inc()
+
+	// Dispatch notifications for terminal sync states
+	if c.notifier != nil && (status == domain.SyncOpSucceeded || status == domain.SyncOpFailed) {
+		event := domain.EventSyncFailed
+		if status == domain.SyncOpSucceeded {
+			event = domain.EventSyncSucceeded
+		}
+		c.dispatchNotification(ctx, app, event, notify.Payload{
+			AppName:     app.Name,
+			Event:       string(event),
+			Status:      string(status),
+			Message:     msg,
+			InitiatedBy: op.InitiatedBy,
+			Revision:    op.Revision,
+			Timestamp:   now.Format(time.RFC3339),
+		})
+	}
+}
+
+func (c *Controller) dispatchNotification(ctx context.Context, app *domain.Application, event domain.NotificationEventType, p notify.Payload) {
+	configs, err := c.store.Notifications.ListEnabledForEvent(ctx, app.ID, event)
+	if err != nil {
+		slog.Debug("notify: list configs", "app", app.Name, "err", err)
+		return
+	}
+	for _, cfg := range configs {
+		c.notifier.Send(ctx, cfg, p)
+	}
 }
 
 func (c *Controller) publishSyncEvent(app *domain.Application, op *domain.SyncOperation) {
@@ -314,4 +367,44 @@ func stringMapToUnstructured(m map[string]string) map[string]interface{} {
 		out[k] = v
 	}
 	return out
+}
+
+// executeHooks applies hook manifests (Job/Pod) and waits for completion.
+func (c *Controller) executeHooks(ctx context.Context, app *domain.Application, phase domain.SyncHookPhase, op *domain.SyncOperation, kc kubeClient) error {
+	hooks, err := c.store.SyncHooks.ListByPhase(ctx, app.ID, phase)
+	if err != nil {
+		slog.Warn("hooks: list", "app", app.Name, "phase", phase, "err", err)
+		return nil // non-fatal: don't block sync on hook DB errors
+	}
+	for _, h := range hooks {
+		obj, err := parseYAMLToUnstructured(h.YAML)
+		if err != nil {
+			slog.Warn("hooks: parse", "hook", h.Name, "err", err)
+			continue
+		}
+		slog.Info("hooks: applying", "hook", h.Name, "phase", phase)
+		res := applyOneWithRetry(ctx, c.cfg, kc, obj, false)
+		res.Kind = "Hook:" + string(phase)
+		op.Resources = append(op.Resources, res)
+		if res.Status == "Failed" {
+			if err := c.store.Sync.Update(ctx, op); err != nil {
+				slog.Warn("hooks: update progress", "err", err)
+			}
+			return fmt.Errorf("hook %s (%s) failed: %s", h.Name, phase, res.Message)
+		}
+		slog.Info("hooks: applied", "hook", h.Name, "phase", phase)
+		if err := c.store.Sync.Update(ctx, op); err != nil {
+			slog.Warn("hooks: update progress", "err", err)
+		}
+	}
+	return nil
+}
+
+func parseYAMLToUnstructured(yamlStr string) (*unstructured.Unstructured, error) {
+	return manifest.ParseYAMLToUnstructured([]byte(yamlStr))
+}
+
+// runSyncFailHooks applies SyncFail hooks. Their failure is logged but doesn't change the already-failed status.
+func (c *Controller) runSyncFailHooks(ctx context.Context, app *domain.Application, op *domain.SyncOperation, kc kubeClient) error {
+	return c.executeHooks(ctx, app, domain.HookSyncFail, op, kc)
 }

@@ -375,3 +375,61 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message,omitempty"`
 }
+
+// NotificationConfig represents a webhook/Slack delivery config.
+type NotificationConfig struct {
+	ID        string    `json:"id"`
+	AppID     string    `json:"appId"`
+	Name      string    `json:"name"`
+	Type      string    `json:"type"`
+	URL       string    `json:"url"`
+	Events    []string  `json:"events"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
+// CreateNotificationConfigRequest is the body for creating a notification config.
+type CreateNotificationConfigRequest struct {
+	Name    string   `json:"name"`
+	Type    string   `json:"type"`
+	URL     string   `json:"url"`
+	Events  []string `json:"events"`
+	Enabled bool     `json:"enabled"`
+}
+
+// UpdateNotificationConfigRequest is the body for updating a notification config.
+type UpdateNotificationConfigRequest struct {
+	Name    string   `json:"name"`
+	Type    string   `json:"type"`
+	URL     string   `json:"url"`
+	Events  []string `json:"events"`
+	Enabled bool     `json:"enabled"`
+}
+
+// SyncHook represents a pre-sync/post-sync/sync-fail hook Job.
+type SyncHook struct {
+	ID        string    `json:"id"`
+	AppID     string    `json:"appId"`
+	Name      string    `json:"name"`
+	Phase     string    `json:"phase"`
+	YAML      string    `json:"yaml"`
+	Enabled   bool      `json:"enabled"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+// CreateSyncHookRequest is the body for creating a sync hook.
+type CreateSyncHookRequest struct {
+	Name    string `json:"name"`
+	Phase   string `json:"phase"`
+	YAML    string `json:"yaml"`
+	Enabled bool   `json:"enabled"`
+}
+
+// UpdateSyncHookRequest is the body for updating a sync hook.
+type UpdateSyncHookRequest struct {
+	Name    string `json:"name"`
+	Phase   string `json:"phase"`
+	YAML    string `json:"yaml"`
+	Enabled bool   `json:"enabled"`
+}

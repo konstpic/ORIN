@@ -1,52 +1,150 @@
 package api
 
 import (
-	"bytes"
-	"context"
-	"encoding/json"
-	"io"
 	"net/http"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/k8s-ui/k8s-ui/internal/domain"
+	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
 )
 
-type notificationTestRequest struct {
-	URL string `json:"url"`
+func (s *Server) listNotificationConfigs(w http.ResponseWriter, r *http.Request) {
+	appName := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, appName)
+	if !ok {
+		return
+	}
+	configs, err := s.opts.Store.Notifications.ListByApp(r.Context(), app.ID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "list_failed", err.Error())
+		return
+	}
+	out := make([]apiv1.NotificationConfig, 0, len(configs))
+	for _, c := range configs {
+		out = append(out, cfgToAPI(c))
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
-// postNotificationTest POSTs a small JSON payload to an external webhook URL
-// (Slack-compatible incoming webhooks, generic automation, etc.).
-func (s *Server) postNotificationTest(w http.ResponseWriter, r *http.Request) {
-	var req notificationTestRequest
+func (s *Server) createNotificationConfig(w http.ResponseWriter, r *http.Request) {
+	appName := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, appName)
+	if !ok {
+		return
+	}
+	var req apiv1.CreateNotificationConfigRequest
 	if err := decodeJSON(r, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
 		return
 	}
-	if req.URL == "" {
-		writeError(w, http.StatusBadRequest, "missing_url", "url is required")
+	cfg := &domain.NotificationConfig{
+		ID:        uuid.NewString(),
+		AppID:     app.ID,
+		Name:      req.Name,
+		Type:      domain.NotificationType(req.Type),
+		URL:       req.URL,
+		Enabled:   req.Enabled,
+		CreatedAt: time.Now().UTC(),
+	}
+	for _, e := range req.Events {
+		cfg.Events = append(cfg.Events, domain.NotificationEventType(e))
+	}
+	if err := s.opts.Store.Notifications.Create(r.Context(), cfg); err != nil {
+		writeError(w, http.StatusInternalServerError, "create_failed", err.Error())
 		return
 	}
-	body, _ := json.Marshal(map[string]any{
-		"source":    "k8s-ui",
-		"event":     "notification.test",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	})
-	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
-	defer cancel()
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, req.URL, bytes.NewReader(body))
+	writeJSON(w, http.StatusCreated, cfgToAPI(cfg))
+}
+
+func (s *Server) updateNotificationConfig(w http.ResponseWriter, r *http.Request) {
+	appName := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, appName)
+	if !ok {
+		return
+	}
+	id := chi.URLParam(r, "configId")
+	var req apiv1.UpdateNotificationConfigRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+		return
+	}
+	cfg, err := s.opts.Store.Notifications.Get(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_url", err.Error())
+		notFoundOr500(w, err)
 		return
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	resp, err := http.DefaultClient.Do(httpReq)
+	if cfg.AppID != app.ID {
+		writeError(w, http.StatusForbidden, "forbidden", "config does not belong to this application")
+		return
+	}
+	cfg.Name = req.Name
+	cfg.Type = domain.NotificationType(req.Type)
+	cfg.URL = req.URL
+	cfg.Enabled = req.Enabled
+	cfg.Events = nil
+	for _, e := range req.Events {
+		cfg.Events = append(cfg.Events, domain.NotificationEventType(e))
+	}
+	if err := s.opts.Store.Notifications.Update(r.Context(), cfg); err != nil {
+		writeError(w, http.StatusInternalServerError, "update_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, cfgToAPI(cfg))
+}
+
+func (s *Server) deleteNotificationConfig(w http.ResponseWriter, r *http.Request) {
+	appName := chi.URLParam(r, "name")
+	app, ok := s.appByNameAuthorized(w, r, appName)
+	if !ok {
+		return
+	}
+	id := chi.URLParam(r, "configId")
+	cfg, err := s.opts.Store.Notifications.Get(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, "webhook_failed", err.Error())
+		notFoundOr500(w, err)
 		return
 	}
-	defer resp.Body.Close()
-	snippet, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
-	writeJSON(w, http.StatusOK, map[string]any{
-		"statusCode": resp.StatusCode,
-		"bodyPrefix": string(snippet),
-	})
+	if cfg.AppID != app.ID {
+		writeError(w, http.StatusForbidden, "forbidden", "config does not belong to this application")
+		return
+	}
+	if err := s.opts.Store.Notifications.Delete(r.Context(), id); err != nil {
+		writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (s *Server) postNotificationTest(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		URL string `json:"url"`
+	}
+	if err := decodeJSON(r, &req); err != nil || req.URL == "" {
+		writeError(w, http.StatusBadRequest, "invalid_body", "url is required")
+		return
+	}
+	if err := s.opts.Notifier.Test(r.Context(), req.URL); err != nil {
+		writeError(w, http.StatusBadGateway, "test_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "message": "test notification sent successfully"})
+}
+
+func cfgToAPI(c *domain.NotificationConfig) apiv1.NotificationConfig {
+	events := make([]string, len(c.Events))
+	for i, e := range c.Events {
+		events[i] = string(e)
+	}
+	return apiv1.NotificationConfig{
+		ID:        c.ID,
+		AppID:     c.AppID,
+		Name:      c.Name,
+		Type:      string(c.Type),
+		URL:       c.URL,
+		Events:    events,
+		Enabled:   c.Enabled,
+		CreatedAt: c.CreatedAt,
+	}
 }
