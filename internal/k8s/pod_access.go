@@ -15,7 +15,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/remotecommand"
 
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
+	"github.com/orin/orin/internal/manifest"
 )
 
 // ErrPodNotOwned is returned when a pod does not belong to the application (tracking label).

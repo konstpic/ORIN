@@ -15,20 +15,20 @@ import (
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/k8s-ui/k8s-ui/internal/api"
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/controller"
-	"github.com/k8s-ui/k8s-ui/internal/crypto"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/grpcserver"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/leaderelection"
-	"github.com/k8s-ui/k8s-ui/internal/notify"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
-	"github.com/k8s-ui/k8s-ui/internal/store"
-	"github.com/k8s-ui/k8s-ui/internal/ws"
+	"github.com/orin/orin/internal/api"
+	"github.com/orin/orin/internal/auth"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/controller"
+	"github.com/orin/orin/internal/crypto"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/grpcserver"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/leaderelection"
+	"github.com/orin/orin/internal/notify"
+	"github.com/orin/orin/internal/rbac"
+	"github.com/orin/orin/internal/reposerver"
+	"github.com/orin/orin/internal/store"
+	"github.com/orin/orin/internal/ws"
 )
 
 // RunAPIServer starts only the API server.
@@ -57,7 +57,7 @@ func RunController(ctx context.Context, cfg *config.Config) error {
 	}
 	defer deps.Close()
 
-	leader := leaderelection.New(deps.Store.Pool, "k8s-ui-controller")
+	leader := leaderelection.New(deps.Store.Pool, "orin-controller")
 	slog.Info("controller waiting for leader lock")
 	return leader.WaitAndRun(ctx, 10*time.Second, func(ctx context.Context) error {
 		slog.Info("controller became leader, starting reconcile loops")
@@ -290,7 +290,7 @@ func seedRBACRoles(ctx context.Context, d *deps, cfg *config.Config) error {
 		tokenHash := hashTokenForSeed(cfg.AdminToken)
 		_, _ = d.Store.Pool.Exec(ctx, `
 			INSERT INTO users (id, email, display_name, role, token_hash, active)
-			VALUES ($1, 'admin@k8s-ui.local', 'Administrator', 'admin', $2, true)
+			VALUES ($1, 'admin@orin.local', 'Administrator', 'admin', $2, true)
 			ON CONFLICT (email) DO NOTHING
 		`, userID, tokenHash)
 	} else if existingHash == "" && cfg.AdminToken != "" {

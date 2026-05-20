@@ -22,7 +22,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/k8s-ui/k8s-ui/internal/config.Version=${VERSION}" -o /out/k8s-ui ./cmd/k8s-ui
+RUN CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/orin/orin/internal/config.Version=${VERSION}" -o /out/orin ./cmd/orin
 
 # ----- runtime -----
 # go-git invokes the real `git` binary when cloning from a local bare repo
@@ -38,13 +38,13 @@ RUN apk add --no-cache git ca-certificates curl \
     && addgroup -g 65532 -S nonroot \
     && adduser -u 65532 -S -G nonroot -h /tmp nonroot
 WORKDIR /app
-COPY --from=go  /out/k8s-ui /app/k8s-ui
+COPY --from=go  /out/orin /app/orin
 COPY --from=web /web/dist /app/web
 ENV WEB_ASSETS_DIR=/app/web \
     HTTP_ADDR=:8080 \
-    REPO_CACHE_DIR=/tmp/k8s-ui-repos \
+    REPO_CACHE_DIR=/tmp/orin-repos \
     IN_CLUSTER=true
 USER 65532:65532
 EXPOSE 8080
-ENTRYPOINT ["/app/k8s-ui"]
+ENTRYPOINT ["/app/orin"]
 CMD ["all-in-one"]

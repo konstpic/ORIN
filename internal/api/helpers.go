@@ -7,10 +7,10 @@ import (
 	"maps"
 	"net/http"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/store"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/auth"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/store"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

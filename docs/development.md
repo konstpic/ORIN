@@ -11,7 +11,7 @@
 
 ```bash
 git clone <repo>
-cd k8s_ui
+cd orin
 
 # Backend deps
 go mod download
@@ -20,7 +20,7 @@ go mod download
 cd web && npm install && cd ..
 
 # Local Postgres
-docker run -d --rm --name k8s-ui-pg -p 5432:5432 \
+docker run -d --rm --name orin-pg -p 5432:5432 \
   -e POSTGRES_USER=k8sui -e POSTGRES_PASSWORD=k8sui -e POSTGRES_DB=k8sui \
   postgres:16-alpine
 ```
@@ -33,7 +33,7 @@ DATABASE_URL=postgres://k8sui:k8sui@localhost:5432/k8sui?sslmode=disable \
 ADMIN_TOKEN=devtoken \
 ENCRYPTION_KEY=$(openssl rand -hex 32) \
 KUBECONFIG=$HOME/.kube/config \
-  go run ./cmd/k8s-ui all-in-one
+  go run ./cmd/orin all-in-one
 
 # Frontend (in another terminal)
 cd web && npm run dev

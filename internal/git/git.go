@@ -18,7 +18,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing"
 	httpauth "github.com/go-git/go-git/v5/plumbing/transport/http"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // Cache manages a disk cache of bare clones keyed by repository URL.

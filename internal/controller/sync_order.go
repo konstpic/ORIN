@@ -11,9 +11,9 @@ import (
 
 const (
 	annSyncWaveArgo = "argocd.argoproj.io/sync-wave"
-	annSyncWave     = "gitops.k8s-ui.dev/sync-wave"
+	annSyncWave     = "gitops.orin.dev/sync-wave"
 	annHookArgo     = "argocd.argoproj.io/hook"
-	annHook         = "gitops.k8s-ui.dev/hook"
+	annHook         = "gitops.orin.dev/hook"
 )
 
 func syncWave(o *unstructured.Unstructured) int {

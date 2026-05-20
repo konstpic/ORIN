@@ -20,8 +20,8 @@ func TestIsControlPlaneObject(t *testing.T) {
 		kind       string
 		want       bool
 	}{
-		{"k8s-ui.io/v1alpha1", "Application", true},
-		{"k8s-ui.io/v1alpha1", "AppProject", true},
+		{"orin.io/v1alpha1", "Application", true},
+		{"orin.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "Application", true},
 		{"argoproj.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "ApplicationSet", false},
@@ -43,7 +43,7 @@ func TestIsControlPlaneObject(t *testing.T) {
 func TestFilterApplicable(t *testing.T) {
 	objs := []*unstructured.Unstructured{
 		obj("apps/v1", "Deployment"),
-		obj("k8s-ui.io/v1alpha1", "Application"),
+		obj("orin.io/v1alpha1", "Application"),
 		obj("v1", "ConfigMap"),
 		obj("argoproj.io/v1alpha1", "AppProject"),
 		obj("v1", "Secret"),

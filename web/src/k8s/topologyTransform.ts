@@ -84,7 +84,7 @@ function aggregateSync(items: ResourceNode[]): SyncStatus {
 function makeKindGroup(kind: string, members: ResourceNode[], parentUid: string): ResourceNode {
   const uid = `synthetic:group:${parentUid}:${kind}`;
   return {
-    group: "ui.k8s-ui",
+    group: "ui.orin",
     version: "v1",
     kind,
     name: `${members.length} ${kind}`,
@@ -198,7 +198,7 @@ export function buildSyntheticApplicationRoot(
   resourceRoots: ResourceNode[],
 ): ResourceNode {
   return {
-    group: "ui.k8s-ui",
+    group: "ui.orin",
     version: "v1",
     kind: "Application",
     name: appName,

@@ -8,7 +8,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
+	"github.com/orin/orin/internal/k8s"
 )
 
 // kubeClient abstracts the process-local ClusterManager and per-registered

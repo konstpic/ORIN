@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package reposerver;
 
-option go_package = "github.com/k8s-ui/k8s-ui/proto/reposerver;reposerverpb";
+option go_package = "github.com/orin/orin/proto/reposerver;reposerverpb";
 
 // RepoServer renders Git repository contents into Kubernetes manifests
 // and provides git introspection (commits, diffs, raw files).

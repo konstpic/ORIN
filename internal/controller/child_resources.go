@@ -9,17 +9,17 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/appcatalog"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/store"
+	"github.com/orin/orin/internal/appcatalog"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/store"
 )
 
 // reconcileChildResources scans rendered manifests of the parent Application for
-// k8s-ui.io/Application, k8s-ui.io/AppProject, argoproj.io/Application, and
+// orin.io/Application, orin.io/AppProject, argoproj.io/Application, and
 // argoproj.io/AppProject objects and upserts them into the database.
 //
 // This is the "app of apps" flow: a parent chart declares child applications or
-// projects as first-class objects; k8s-ui reads them and creates/updates the
+// projects as first-class objects; orin reads them and creates/updates the
 // corresponding database rows.  The objects themselves are never applied to the
 // destination cluster (see manifest.IsControlPlaneObject).
 //

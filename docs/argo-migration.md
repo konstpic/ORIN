@@ -1,17 +1,17 @@
-# Migrating from Argo CD to k8s-ui
+# Migrating from Argo CD to orin
 
 This guide covers what works as-is, what needs minor adaptation, and what is
-not yet supported when moving an existing Argo CD installation to k8s-ui.
+not yet supported when moving an existing Argo CD installation to orin.
 
 ## Quick-start migration workflow
 
 ```
 1. kubectl get applications.argoproj.io -A -o yaml > argo-apps.yaml
 2. Register every Git repository that appears in your Application manifests
-   via POST /api/v1/repositories (or the k8s-ui UI).
+   via POST /api/v1/repositories (or the orin UI).
 3. Register every target cluster via POST /api/v1/clusters.
 4. POST /api/v1/argo-import  (dry-run first; see section below)
-5. Disable Argo CD auto-sync on all migrated apps, verify k8s-ui shows Synced.
+5. Disable Argo CD auto-sync on all migrated apps, verify orin shows Synced.
 6. Remove Argo CD Applications.
 ```
 
@@ -21,7 +21,7 @@ not yet supported when moving an existing Argo CD installation to k8s-ui.
 
 ### Application source
 
-| Argo CD feature | k8s-ui status | Notes / migration path |
+| Argo CD feature | orin status | Notes / migration path |
 |-----------------|--------------|------------------------|
 | `spec.source.repoURL` + `path` + `targetRevision` | **Supported** | Direct mapping. |
 | `spec.source.helm.values` (inline YAML string) | **Supported** | Parsed and stored as `source.helmValues` JSON. |
@@ -31,45 +31,45 @@ not yet supported when moving an existing Argo CD installation to k8s-ui.
 | `spec.source.helm.version` | Not supported | Pin the chart directory to the desired version in Git. |
 | `spec.source.kustomize` (images, patches, namePrefix…) | Not supported | Move the overlay into the repo as a `kustomization.yaml` and point `path` at it. |
 | `spec.source.plugin` / Config Management Plugin | Not supported | No planned support in v1. |
-| `spec.sources` (multi-source) | **Partial** | At import time only the **first** source is used; a warning is logged. Multiple sources require creating one k8s-ui Application per source. |
+| `spec.sources` (multi-source) | **Partial** | At import time only the **first** source is used; a warning is logged. Multiple sources require creating one orin Application per source. |
 | Helm chart from Helm repository / OCI registry | Not supported | The source must be in a registered Git repository. Planned for a future release. |
 | Directory with `recurse: true` | *Default behavior* | Plain YAML renderer already recurses all `.yaml`/`.yml` files. |
 
 ### Sync policy
 
-| Argo CD feature | k8s-ui status | Notes |
+| Argo CD feature | orin status | Notes |
 |-----------------|--------------|-------|
 | `syncPolicy.automated.prune` | **Supported** | |
 | `syncPolicy.automated.selfHeal` | **Supported** | |
 | `syncPolicy.syncOptions: [CreateNamespace=true]` | **Supported** | Also settable via `syncPolicy.createNamespace: true`. |
 | `syncPolicy.managedNamespaceMetadata` | **Supported** | `labels` and `annotations` merged into the Namespace object. |
 | `syncPolicy.retry` | Not supported | Failed syncs must be retried manually or via automated selfHeal re-queue. |
-| `argocd.argoproj.io/sync-wave` annotation | **Supported** | Resources are ordered by wave before apply. k8s-ui annotation `gitops.k8s-ui.dev/sync-wave` is equivalent. |
-| `argocd.argoproj.io/hook` (PreSync / Sync / PostSync) | **Supported** | Hook phases are honoured. `SyncFail` maps to the "fail" bucket (applied last). k8s-ui annotation `gitops.k8s-ui.dev/hook` is equivalent. |
+| `argocd.argoproj.io/sync-wave` annotation | **Supported** | Resources are ordered by wave before apply. orin annotation `gitops.orin.dev/sync-wave` is equivalent. |
+| `argocd.argoproj.io/hook` (PreSync / Sync / PostSync) | **Supported** | Hook phases are honoured. `SyncFail` maps to the "fail" bucket (applied last). orin annotation `gitops.orin.dev/hook` is equivalent. |
 | Hook deletion policies | Not supported | Hooks are never deleted after sync. |
 | `ApplyOutOfSyncOnly` sync option | Not supported | All desired resources are always applied. |
 | `spec.ignoreDifferences` | **Supported** | Per-application rules; group/kind/name/namespace + JSON pointer paths. See below. |
-| Server-side apply | **Default** | k8s-ui always uses SSA with `fieldManager: k8s-ui`. |
+| Server-side apply | **Default** | orin always uses SSA with `fieldManager: orin`. |
 | Replace strategy | Not supported | |
 
 ### Projects and RBAC
 
-| Argo CD feature | k8s-ui status | Notes |
+| Argo CD feature | orin status | Notes |
 |-----------------|--------------|-------|
 | `AppProject` with `sourceRepos` whitelist | **Supported** | `project.spec.sourceRepos` is checked on create/update/sync. |
 | `AppProject` with `destinations` whitelist | **Supported** | Cluster name and namespace patterns are validated. |
 | `AppProject` with `clusterResourceWhitelist` | **Supported** | Cluster-scoped kinds must be in the project allow list. |
 | `AppProject` with `namespaceResourceBlacklist` | **Supported** | Namespace-scoped kinds blocked for the project. |
-| `AppProject` RBAC roles (`policies`) | Not supported | k8s-ui uses a single admin token today. OIDC + project roles are planned. |
+| `AppProject` RBAC roles (`policies`) | Not supported | orin uses a single admin token today. OIDC + project roles are planned. |
 | Orphaned resources monitoring | Not supported | |
 
 ### ApplicationSet
 
-| Argo CD feature | k8s-ui status | Notes |
+| Argo CD feature | orin status | Notes |
 |-----------------|--------------|-------|
 | Static list generator | **Equivalent** — use the [Apps Catalog](../README.md#application-catalog) or `POST /api/v1/application-batches`. |
 | Git file/directory generator | **Equivalent** — point `APPS_CATALOG_REPO_URL` at the same repo; the catalog file is your generator. |
-| App-of-apps / template generator | **Supported** — render `k8s-ui.io/v1alpha1 Application` objects from a parent chart; k8s-ui automatically upserts them. See [App of apps](../README.md#app-of-apps-child-applications-and-projects). |
+| App-of-apps / template generator | **Supported** — render `orin.io/v1alpha1 Application` objects from a parent chart; orin automatically upserts them. See [App of apps](../README.md#app-of-apps-child-applications-and-projects). |
 | Cluster generator | Not supported | Manually create one Application per cluster or script via the batch API. |
 | Matrix / merge generators | Not supported | Compose via CI scripts that call the batch API. |
 | Pull Request generator | Not supported | |
@@ -77,7 +77,7 @@ not yet supported when moving an existing Argo CD installation to k8s-ui.
 
 ### Deployment history and rollback
 
-| Argo CD feature | k8s-ui status | Notes |
+| Argo CD feature | orin status | Notes |
 |-----------------|--------------|-------|
 | Deployment history list | **Supported** — `GET /api/v1/applications/{name}/history` |
 | Rollback to a previous revision | **Supported** — `POST /api/v1/applications/{name}/rollback` with `{"revision": "<sha>"}` |
@@ -85,7 +85,7 @@ not yet supported when moving an existing Argo CD installation to k8s-ui.
 
 ### Health assessment
 
-| Kind | k8s-ui status |
+| Kind | orin status |
 |------|--------------|
 | Deployment, ReplicaSet, StatefulSet, DaemonSet, Pod, Job | **Built-in** |
 | Service, Ingress, ConfigMap, Secret, RBAC resources, Namespace | Always **Healthy** |
@@ -95,14 +95,14 @@ not yet supported when moving an existing Argo CD installation to k8s-ui.
 
 ## Importing Argo CD Applications
 
-k8s-ui exposes `POST /api/v1/argo-import` which accepts a raw Kubernetes YAML
+orin exposes `POST /api/v1/argo-import` which accepts a raw Kubernetes YAML
 document (one or more `argoproj.io/v1alpha1 Application` manifests, as produced
 by `kubectl get applications.argoproj.io -A -o yaml`).
 
 ### Dry-run first
 
 ```bash
-curl -s -X POST https://<k8s-ui>/api/v1/argo-import \
+curl -s -X POST https://<orin>/api/v1/argo-import \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
   --data-binary @argo-apps.yaml \
@@ -116,7 +116,7 @@ Helm repo, plugins) as warnings. No changes are made.
 ### Apply
 
 ```bash
-curl -s -X POST "https://<k8s-ui>/api/v1/argo-import?apply=true" \
+curl -s -X POST "https://<orin>/api/v1/argo-import?apply=true" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/yaml" \
   --data-binary @argo-apps.yaml \
@@ -136,13 +136,13 @@ in your Application manifests:
 
 ```bash
 # Register a repository
-curl -X POST https://<k8s-ui>/api/v1/repositories \
+curl -X POST https://<orin>/api/v1/repositories \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"url":"https://github.com/org/repo.git","username":"...","password":"..."}'
 
 # Register an external cluster (kubeconfig YAML)
-curl -X POST https://<k8s-ui>/api/v1/clusters \
+curl -X POST https://<orin>/api/v1/clusters \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"name\":\"prod\",\"kubeconfigYaml\":\"$(cat ~/.kube/prod.yaml | base64)\"}"
@@ -156,10 +156,10 @@ pre-registered as `in-cluster` and does not need to be created.
 ## `ignoreDifferences`
 
 In Argo CD you can suppress false OutOfSync signals with `spec.ignoreDifferences`.
-k8s-ui supports an equivalent in `syncPolicy.ignoreDifferences`:
+orin supports an equivalent in `syncPolicy.ignoreDifferences`:
 
 ```yaml
-# k8s-ui catalog / API format
+# orin catalog / API format
 syncPolicy:
   ignoreDifferences:
     - group: apps
@@ -193,7 +193,7 @@ spec:
       jsonPointers:
         - /spec/replicas
 
-# k8s-ui (identical shape — paste as-is under syncPolicy)
+# orin (identical shape — paste as-is under syncPolicy)
 syncPolicy:
   ignoreDifferences:
     - group: apps
@@ -208,16 +208,16 @@ syncPolicy:
 
 ### Strategy decision
 
-k8s-ui does **not** implement the full ApplicationSet controller. The decision
+orin does **not** implement the full ApplicationSet controller. The decision
 is intentional: ApplicationSet generators add significant complexity and most
 real-world GitOps setups use only a narrow subset of their capabilities.
 
-The table below maps each common generator to a k8s-ui equivalent:
+The table below maps each common generator to a orin equivalent:
 
-| Argo CD generator | k8s-ui equivalent |
+| Argo CD generator | orin equivalent |
 |-------------------|-------------------|
 | **Static list** generator | `POST /api/v1/application-batches` with a JSON `items[]` list, or a Git catalog file (`applications:` list). |
-| **Git file** generator (`path: apps/**/*.yaml`) | The [Apps Catalog](../README.md#application-catalog) — point `APPS_CATALOG_REPO_URL` at the same repo and commit a single `k8s-ui/apps.yaml` that lists all applications. |
+| **Git file** generator (`path: apps/**/*.yaml`) | The [Apps Catalog](../README.md#application-catalog) — point `APPS_CATALOG_REPO_URL` at the same repo and commit a single `orin/apps.yaml` that lists all applications. |
 | **Git directory** generator | Same as above: commit one entry per directory in the catalog file. |
 | **Cluster** generator (one app per cluster) | Use `POST /api/v1/application-batches` from CI (e.g. a GitHub Actions workflow that iterates `kubectl get clusters` and calls the API). |
 | **Matrix / merge** generator | Compose in CI scripts that call the batch API. |
@@ -249,7 +249,7 @@ spec:
         namespace: myapp
 ```
 
-translates to a Git catalog file (`k8s-ui/apps.yaml`):
+translates to a Git catalog file (`orin/apps.yaml`):
 
 ```yaml
 applications:
@@ -259,7 +259,7 @@ applications:
       targetRevision: HEAD
       path: environments/production
     destination:
-      cluster: production        # must match a registered k8s-ui cluster name
+      cluster: production        # must match a registered orin cluster name
       namespace: myapp
   - name: myapp-staging
     source:
@@ -277,7 +277,7 @@ Enable catalog sync in `deploy/helm/values.yaml`:
 appsCatalog:
   enabled: true
   repoUrl: https://github.com/org/gitops.git
-  path: k8s-ui/apps.yaml
+  path: orin/apps.yaml
   revision: HEAD
 ```
 
@@ -297,7 +297,7 @@ ITEMS=()
 for cluster in $CLUSTERS; do
   ITEMS+=("{\"name\":\"myapp-${cluster}\",\"cluster\":\"${cluster}\"}")
 done
-curl -X POST https://<k8s-ui>/api/v1/application-batches \
+curl -X POST https://<orin>/api/v1/application-batches \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d "{\"template\":${TEMPLATE},\"items\":[$(IFS=,; echo "${ITEMS[*]}")]}"
@@ -307,7 +307,7 @@ curl -X POST https://<k8s-ui>/api/v1/application-batches \
 
 ApplicationSet progressive sync (rollout waves across clusters) is not
 supported. For canary/blue-green use a dedicated tool such as Argo Rollouts or
-Flagger alongside k8s-ui; k8s-ui honours the `sync-wave` annotation to order
+Flagger alongside orin; orin honours the `sync-wave` annotation to order
 resources within a single sync.
 
 ---
@@ -323,6 +323,6 @@ path beyond manual workarounds:
 | Helm chart from Helm repo / OCI | Mirror the chart into a Git repository. |
 | `ApplicationSet` cluster/PR/matrix generators | Use CI scripting + the batch API. |
 | Argo CD RBAC policies (Casbin) | A single admin token is used today; OIDC + project roles are planned. |
-| Notification controller | k8s-ui has a basic notification webhook; Argo-style triggers are not supported. |
+| Notification controller | orin has a basic notification webhook; Argo-style triggers are not supported. |
 | `argocd app wait` / gRPC streaming | Use the REST API + WebSocket `/api/v1/applications/{name}/events`. |
 | Resource hooks with delete policies | Hooks fire but are never deleted post-sync. |

@@ -9,9 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
-	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/rbac"
+	"github.com/orin/orin/internal/rbacenforce"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 // --- Roles ---

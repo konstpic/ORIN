@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/runtime"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/runtime"
 )
 
 // NewAPIServerCmd returns the apiserver subcommand.

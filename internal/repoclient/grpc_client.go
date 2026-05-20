@@ -10,9 +10,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/k8s-ui/k8s-ui/internal/git"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
-	pb "github.com/k8s-ui/k8s-ui/proto/reposerver"
+	"github.com/orin/orin/internal/git"
+	"github.com/orin/orin/internal/reposerver"
+	pb "github.com/orin/orin/proto/reposerver"
 )
 
 // GRPCClient calls a remote reposerver over gRPC.

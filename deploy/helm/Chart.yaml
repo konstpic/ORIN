@@ -1,5 +1,5 @@
 apiVersion: v2
-name: k8s-ui
+name: orin
 description: GitOps dashboard for Kubernetes
 type: application
 version: 0.1.0

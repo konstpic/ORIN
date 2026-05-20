@@ -3,7 +3,7 @@ package reposerver
 import (
 	"encoding/json"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // EncodeCreds serialises decrypted credentials for storage.

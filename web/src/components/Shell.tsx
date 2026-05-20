@@ -20,9 +20,9 @@ export function Shell({ children }: { children: ReactNode }) {
       >
         <div className="px-4 py-5 border-b border-[var(--color-border)]">
           <Link to="/applications" className="text-lg font-semibold tracking-tight text-[var(--color-text)]">
-            k8s-ui
+            ORIN
           </Link>
-          <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] mt-1">GitOps</div>
+          <div className="text-[11px] uppercase tracking-wider text-[var(--color-text-muted)] mt-1">GitOps Navigation System for Kubernetes</div>
         </div>
         <nav className="flex-1 px-2 py-4 space-y-0.5 text-sm">
           <SideLink to="/applications" label="Applications" icon={Boxes} />

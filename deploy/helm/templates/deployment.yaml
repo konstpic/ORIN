@@ -1,17 +1,17 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "k8s-ui.fullname" . }}
-  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+  name: {{ include "orin.fullname" . }}
+  labels: {{- include "orin.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
-    matchLabels: {{- include "k8s-ui.labels" . | nindent 6 }}
+    matchLabels: {{- include "orin.labels" . | nindent 6 }}
   template:
     metadata:
-      labels: {{- include "k8s-ui.labels" . | nindent 8 }}
+      labels: {{- include "orin.labels" . | nindent 8 }}
     spec:
-      serviceAccountName: {{ include "k8s-ui.fullname" . }}
+      serviceAccountName: {{ include "orin.fullname" . }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
@@ -27,21 +27,21 @@ spec:
           command:
             - sh
             - -c
-            - until pg_isready -h k8s-ui-postgres -p 5432 -U k8sui; do echo waiting for postgres; sleep 2; done
+            - until pg_isready -h {{ include "orin.postgres.fullname" . }} -p 5432 -U {{ .Values.postgres.username | quote }}; do echo waiting for postgres; sleep 2; done
       {{- end }}
       containers:
-        - name: k8s-ui
+        - name: orin
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports: [{ containerPort: 8080, name: http }]
           envFrom:
-            - secretRef: { name: {{ include "k8s-ui.fullname" . }} }
+            - secretRef: { name: {{ include "orin.fullname" . }} }
           {{- if and .Values.appsCatalog.enabled .Values.appsCatalog.repoUrl }}
           env:
             - name: APPS_CATALOG_REPO_URL
               value: {{ .Values.appsCatalog.repoUrl | quote }}
             - name: APPS_CATALOG_PATH
-              value: {{ .Values.appsCatalog.path | default "k8s-ui/apps.yaml" | quote }}
+              value: {{ .Values.appsCatalog.path | default "orin/apps.yaml" | quote }}
             - name: APPS_CATALOG_REVISION
               value: {{ .Values.appsCatalog.revision | default "HEAD" | quote }}
             - name: APPS_CATALOG_INTERVAL
@@ -51,7 +51,7 @@ spec:
           livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 10 }
           resources: {{ toYaml .Values.resources | nindent 12 }}
           volumeMounts:
-            - { name: repo-cache, mountPath: /tmp/k8s-ui-repos }
+            - { name: repo-cache, mountPath: /tmp/orin-repos }
       volumes:
         - name: repo-cache
           emptyDir: {}
@@ -59,11 +59,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "k8s-ui.fullname" . }}
-  labels: {{- include "k8s-ui.labels" . | nindent 4 }}
+  name: {{ include "orin.fullname" . }}
+  labels: {{- include "orin.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
-  selector: {{- include "k8s-ui.labels" . | nindent 4 }}
+  selector: {{- include "orin.labels" . | nindent 4 }}
   ports:
     - name: http
       port: {{ .Values.service.port }}

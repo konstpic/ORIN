@@ -1,5 +1,5 @@
 // Package config centralises environment-driven configuration for all
-// k8s-ui subcommands. Values are read once at process startup and validated
+// orin subcommands. Values are read once at process startup and validated
 // before any subsystem starts.
 package config
 
@@ -25,7 +25,7 @@ type Config struct {
 	// Authentication. AdminToken is a single static bearer token used for the
 	// MVP. When OIDCIssuerURL and OIDCClientID are set, an OIDC login flow can
 	// be wired without dropping static-token bootstrap (see docs).
-	AdminToken string
+	AdminToken    string
 	OIDCIssuerURL string
 	OIDCClientID  string
 	OIDCAudience  string
@@ -39,13 +39,13 @@ type Config struct {
 	InCluster      bool   // explicit override
 
 	// Repo server
-	RepoCacheDir       string
-	RepoPollInterval   time.Duration
-	RepoRenderTimeout  time.Duration
+	RepoCacheDir      string
+	RepoPollInterval  time.Duration
+	RepoRenderTimeout time.Duration
 
 	// Controller
-	ReconcileWorkers   int
-	ReconcileResync    time.Duration
+	ReconcileWorkers int
+	ReconcileResync  time.Duration
 	// SyncApplyRetries is per-resource apply attempts on transient errors (>=1).
 	SyncApplyRetries int
 	// AutoSyncGracePeriod is the duration after a manual live-apply during which
@@ -74,26 +74,26 @@ type Config struct {
 // MVP defaults.
 func Load() (*Config, error) {
 	cfg := &Config{
-		HTTPAddr:          envOr("HTTP_ADDR", ":8080"),
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		AdminToken:        os.Getenv("ADMIN_TOKEN"),
-		EncryptionKey:     os.Getenv("ENCRYPTION_KEY"),
-		KubeconfigPath:    os.Getenv("KUBECONFIG"),
-		InCluster:         envBool("IN_CLUSTER", false),
-		RepoCacheDir:      envOr("REPO_CACHE_DIR", "/var/cache/k8s-ui/repos"),
-		RepoPollInterval:  envDuration("REPO_POLL_INTERVAL", 3*time.Minute),
-		RepoRenderTimeout: envDuration("REPO_RENDER_TIMEOUT", 60*time.Second),
-		ReconcileWorkers:  envInt("RECONCILE_WORKERS", 10),
-		ReconcileResync:   envDuration("RECONCILE_RESYNC", 3*time.Minute),
-		SyncApplyRetries:  envInt("SYNC_APPLY_RETRIES", 1),
+		HTTPAddr:            envOr("HTTP_ADDR", ":8080"),
+		DatabaseURL:         os.Getenv("DATABASE_URL"),
+		AdminToken:          os.Getenv("ADMIN_TOKEN"),
+		EncryptionKey:       os.Getenv("ENCRYPTION_KEY"),
+		KubeconfigPath:      os.Getenv("KUBECONFIG"),
+		InCluster:           envBool("IN_CLUSTER", false),
+		RepoCacheDir:        envOr("REPO_CACHE_DIR", "/var/cache/orin/repos"),
+		RepoPollInterval:    envDuration("REPO_POLL_INTERVAL", 3*time.Minute),
+		RepoRenderTimeout:   envDuration("REPO_RENDER_TIMEOUT", 60*time.Second),
+		ReconcileWorkers:    envInt("RECONCILE_WORKERS", 10),
+		ReconcileResync:     envDuration("RECONCILE_RESYNC", 3*time.Minute),
+		SyncApplyRetries:    envInt("SYNC_APPLY_RETRIES", 1),
 		AutoSyncGracePeriod: envDuration("AUTO_SYNC_GRACE_PERIOD", 30*time.Minute),
-		SyncDenyRangeUTC:  os.Getenv("SYNC_DENY_RANGE_UTC"),
-		OIDCIssuerURL:     os.Getenv("OIDC_ISSUER_URL"),
-		OIDCClientID:      os.Getenv("OIDC_CLIENT_ID"),
-		OIDCAudience:      os.Getenv("OIDC_AUDIENCE"),
-		WebAssetsDir:      os.Getenv("WEB_ASSETS_DIR"),
+		SyncDenyRangeUTC:    os.Getenv("SYNC_DENY_RANGE_UTC"),
+		OIDCIssuerURL:       os.Getenv("OIDC_ISSUER_URL"),
+		OIDCClientID:        os.Getenv("OIDC_CLIENT_ID"),
+		OIDCAudience:        os.Getenv("OIDC_AUDIENCE"),
+		WebAssetsDir:        os.Getenv("WEB_ASSETS_DIR"),
 		AppsCatalogRepoURL:  os.Getenv("APPS_CATALOG_REPO_URL"),
-		AppsCatalogPath:     envOr("APPS_CATALOG_PATH", "k8s-ui/apps.yaml"),
+		AppsCatalogPath:     envOr("APPS_CATALOG_PATH", "orin/apps.yaml"),
 		AppsCatalogRevision: envOr("APPS_CATALOG_REVISION", "HEAD"),
 		AppsCatalogInterval: envDuration("APPS_CATALOG_INTERVAL", 5*time.Minute),
 	}

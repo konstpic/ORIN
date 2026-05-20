@@ -3,8 +3,8 @@ package api
 import (
 	"net/http"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/auth"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 func (s *Server) createApplicationBatch(w http.ResponseWriter, r *http.Request) {

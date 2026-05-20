@@ -14,15 +14,15 @@ const (
 	EntryKindAppProject
 )
 
-// isControlPlaneGroup returns true for API groups that k8s-ui owns and which
+// isControlPlaneGroup returns true for API groups that orin owns and which
 // must never be applied to the destination Kubernetes cluster.
 func isControlPlaneGroup(apiVersion string) bool {
 	av := strings.ToLower(apiVersion)
-	return strings.HasPrefix(av, "k8s-ui.io") || strings.Contains(av, "argoproj.io")
+	return strings.HasPrefix(av, "orin.io") || strings.Contains(av, "argoproj.io")
 }
 
 // IsControlPlaneObject reports whether an unstructured object belongs to a
-// k8s-ui or Argo control-plane group (Application or AppProject).  These
+// orin or Argo control-plane group (Application or AppProject).  These
 // objects are used to declare child resources but must not be applied to the
 // destination cluster.
 func IsControlPlaneObject(u *unstructured.Unstructured) bool {
@@ -37,7 +37,7 @@ func IsControlPlaneObject(u *unstructured.Unstructured) bool {
 }
 
 // TryEntryFromObject attempts to parse u as either an Application entry or an
-// AppProject entry.  It accepts objects from both the canonical k8s-ui.io
+// AppProject entry.  It accepts objects from both the canonical orin.io
 // group and the argoproj.io compat group.
 //
 // ok is false when the object is not a recognised control-plane kind.
@@ -51,7 +51,7 @@ func TryEntryFromObject(
 		return
 	}
 	av := strings.ToLower(u.GetAPIVersion())
-	isKuiGroup := strings.HasPrefix(av, "k8s-ui.io")
+	isKuiGroup := strings.HasPrefix(av, "orin.io")
 	isArgoGroup := strings.Contains(av, "argoproj.io")
 	if !isKuiGroup && !isArgoGroup {
 		return
@@ -68,12 +68,12 @@ func TryEntryFromObject(
 	return
 }
 
-// tryApplicationEntry parses an Application object from either the k8s-ui.io
-// or argoproj.io group.  The k8s-ui.io spec uses spec.source.repoUrl (camelCase)
+// tryApplicationEntry parses an Application object from either the orin.io
+// or argoproj.io group.  The orin.io spec uses spec.source.repoUrl (camelCase)
 // while argoproj.io uses spec.source.repoURL.  The existing TryArgoApplicationEntry
 // helper handles both cases via firstString, so we reuse it for both groups.
 func tryApplicationEntry(u *unstructured.Unstructured, resolve ArgoDestinationResolve, isKuiGroup bool) (Entry, bool, error) {
-	// For k8s-ui.io/Application the spec shape is identical to argoproj.io/Application
+	// For orin.io/Application the spec shape is identical to argoproj.io/Application
 	// (same source/destination/syncPolicy layout).  We temporarily rewrite the
 	// apiVersion so TryArgoApplicationEntry recognises it, then restore.
 	if isKuiGroup {

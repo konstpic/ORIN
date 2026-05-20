@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/config"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 func (s *Server) getSystemConfig(w http.ResponseWriter, r *http.Request) {

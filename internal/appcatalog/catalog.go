@@ -17,8 +17,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/store"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/store"
 )
 
 // doc is the YAML document root.
@@ -37,9 +37,9 @@ type EntryIgnoreDifferenceRule struct {
 
 // Entry is one application row (catalog file or embedded ConfigMap data).
 type Entry struct {
-	Name        string `yaml:"name"`
-	Project     string `yaml:"project"`
-	Source      struct {
+	Name    string `yaml:"name"`
+	Project string `yaml:"project"`
+	Source  struct {
 		RepoURL        string `yaml:"repoUrl"`
 		Path           string `yaml:"path"`
 		TargetRevision string `yaml:"targetRevision"`
@@ -57,7 +57,7 @@ type Entry struct {
 			Prune    bool `yaml:"prune"`
 			SelfHeal bool `yaml:"selfHeal"`
 		} `yaml:"automated"`
-		SyncOptions []string `yaml:"syncOptions,omitempty"`
+		SyncOptions              []string `yaml:"syncOptions,omitempty"`
 		ManagedNamespaceMetadata *struct {
 			Labels      map[string]string `yaml:"labels,omitempty"`
 			Annotations map[string]string `yaml:"annotations,omitempty"`
@@ -256,7 +256,7 @@ func managedNSMetaEqual(a, b *domain.ManagedNamespaceMetadata) bool {
 // ParseCatalogYAML parses a Git catalog file.
 //
 // The canonical format is a multi-document YAML file where each document is
-// a k8s-ui.io/v1alpha1 or argoproj.io/v1alpha1 object (Application or
+// a orin.io/v1alpha1 or argoproj.io/v1alpha1 object (Application or
 // AppProject).
 //
 // For backward compatibility, a single-document file with a top-level
@@ -264,7 +264,7 @@ func managedNSMetaEqual(a, b *domain.ManagedNamespaceMetadata) bool {
 // deprecated and a warning is logged on every parse.
 //
 // resolve is used to map Argo-style destination.server to a cluster name;
-// it may be nil if the caller only works with k8s-ui.io-style destinations
+// it may be nil if the caller only works with orin.io-style destinations
 // that use a cluster name directly.
 func ParseCatalogYAML(data []byte, resolve ArgoDestinationResolve) (apps []Entry, projects []ProjectEntry, err error) {
 	if resolve == nil {
@@ -288,7 +288,7 @@ func ParseCatalogYAML(data []byte, resolve ArgoDestinationResolve) (apps []Entry
 		}
 		u := &unstructured.Unstructured{Object: raw}
 		av := strings.ToLower(u.GetAPIVersion())
-		isTyped := strings.HasPrefix(av, "k8s-ui.io") || strings.Contains(av, "argoproj.io")
+		isTyped := strings.HasPrefix(av, "orin.io") || strings.Contains(av, "argoproj.io")
 		if isTyped {
 			appEntry, projEntry, kind, ok, tryErr := TryEntryFromObject(u, resolve)
 			if tryErr != nil || !ok {
@@ -313,7 +313,7 @@ func ParseCatalogYAML(data []byte, resolve ArgoDestinationResolve) (apps []Entry
 		}
 		if len(legacyDoc.Applications) > 0 || len(legacyDoc.Projects) > 0 {
 			slog.Warn("appcatalog: legacy 'applications:'/'projects:' list format is deprecated; " +
-				"migrate to k8s-ui.io/v1alpha1 Application and AppProject objects")
+				"migrate to orin.io/v1alpha1 Application and AppProject objects")
 			apps = append(apps, legacyDoc.Applications...)
 			projects = append(projects, legacyDoc.Projects...)
 		}

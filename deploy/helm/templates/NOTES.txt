@@ -1,0 +1,10 @@
+ORIN is installed.
+
+Admin token:
+  kubectl get secret -n {{ .Release.Namespace }} {{ include "orin.fullname" . }} -o jsonpath="{.data.ADMIN_TOKEN}" | base64 -d; echo
+
+Port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "orin.fullname" . }} 8080:{{ .Values.service.port }}
+
+Open:
+  http://127.0.0.1:8080/

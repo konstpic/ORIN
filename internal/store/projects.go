@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // Projects manages Argo-style project records.

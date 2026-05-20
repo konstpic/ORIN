@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/orin/orin/internal/rbac"
 )
 
 type ctxKey string
@@ -28,10 +28,10 @@ type User struct {
 	Subject         string // alias for ID, kept for backward compat
 	Email           string
 	DisplayName     string
-	Role            string                     // primary role name
-	Permissions     map[rbac.Permission]bool   // flattened from all bindings
-	Projects        []string                   // "*" means all; union of all binding scopes
-	BindingProjects map[string][]string        // roleID -> projects for that binding
+	Role            string                   // primary role name
+	Permissions     map[rbac.Permission]bool // flattened from all bindings
+	Projects        []string                 // "*" means all; union of all binding scopes
+	BindingProjects map[string][]string      // roleID -> projects for that binding
 }
 
 // WithUser returns a new context carrying u.
@@ -212,7 +212,7 @@ func fullAdminUser() User {
 	return User{
 		ID:          "admin",
 		Subject:     "admin",
-		Email:       "admin@k8s-ui.local",
+		Email:       "admin@orin.local",
 		DisplayName: "Administrator",
 		Role:        "admin",
 		Permissions: perms,
@@ -316,7 +316,7 @@ func StaticToken(token string) func(http.Handler) http.Handler {
 					perms[p] = true
 				}
 				ctx := WithUser(r.Context(), User{
-					ID: "admin", Subject: "admin", Email: "admin@k8s-ui.local", Role: "admin",
+					ID: "admin", Subject: "admin", Email: "admin@orin.local", Role: "admin",
 					Permissions: perms, Projects: []string{"*"},
 				})
 				next.ServeHTTP(w, r.WithContext(ctx))

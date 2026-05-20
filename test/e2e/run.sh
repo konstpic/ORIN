@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# End-to-end smoke test for k8s-ui. See README.md for the steps.
+# End-to-end smoke test for orin. See README.md for the steps.
 set -euo pipefail
 
-CLUSTER=k8s-ui-e2e
-PG_CONT=k8s-ui-e2e-pg
+CLUSTER=orin-e2e
+PG_CONT=orin-e2e-pg
 API_PORT=8080
 ADMIN_TOKEN=devtoken
 ENCRYPTION_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
@@ -92,7 +92,7 @@ git -C "${REPO_DIR}" remote add origin "${REMOTE}" || true
 git -C "${REPO_DIR}" push -u origin main >/dev/null
 
 echo "--- building binary ---"
-(cd "${ROOT}" && go build -o "${TMP}/k8s-ui" ./cmd/k8s-ui)
+(cd "${ROOT}" && go build -o "${TMP}/orin" ./cmd/orin)
 
 echo "--- launching api ---"
 KUBECONFIG=${TMP}/kubeconfig
@@ -104,7 +104,7 @@ KUBECONFIG="${KUBECONFIG}" \
 HTTP_ADDR=":${API_PORT}" \
 REPO_CACHE_DIR="${TMP}/cache" \
 REPO_POLL_INTERVAL="5s" \
-"${TMP}/k8s-ui" all-in-one >"${TMP}/api.log" 2>&1 &
+"${TMP}/orin" all-in-one >"${TMP}/api.log" 2>&1 &
 API_PID=$!
 
 for i in $(seq 1 40); do

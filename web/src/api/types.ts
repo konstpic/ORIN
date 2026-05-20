@@ -50,7 +50,7 @@ export interface SyncPolicy {
   managedNamespaceMetadata?: ManagedNamespaceMetadata;
   /** Apply destination namespace before sync (Argo-style). */
   createNamespace?: boolean;
-  /** @deprecated Ignored. Child apps are always materialized from k8s-ui.io/Application objects. */
+  /** @deprecated Ignored. Child apps are always materialized from orin.io/Application objects. */
   materializeChildApps?: boolean;
   /** Suppress OutOfSync for specific resource fields (Argo-compatible). */
   ignoreDifferences?: IgnoreDifferenceRule[];

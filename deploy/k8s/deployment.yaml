@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-ui
-  namespace: k8s-ui
+  name: orin
+  namespace: orin
 spec:
   type: LoadBalancer
-  selector: { app: k8s-ui }
+  selector: { app: orin }
   ports:
     - name: http
       port: 8080
@@ -15,17 +15,17 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-ui
-  namespace: k8s-ui
+  name: orin
+  namespace: orin
 spec:
   replicas: 1
   selector:
-    matchLabels: { app: k8s-ui }
+    matchLabels: { app: orin }
   template:
     metadata:
-      labels: { app: k8s-ui }
+      labels: { app: orin }
     spec:
-      serviceAccountName: k8s-ui
+      serviceAccountName: orin
       initContainers:
         - name: wait-for-postgres
           image: postgres:16-alpine
@@ -33,16 +33,16 @@ spec:
             - sh
             - -c
             - >-
-              until pg_isready -h k8s-ui-postgres.k8s-ui.svc.cluster.local -p 5432 -U k8sui;
+              until pg_isready -h orin-postgres.orin.svc.cluster.local -p 5432 -U k8sui;
               do sleep 1; done
       containers:
-        - name: k8s-ui
-          image: k8s-ui:dev
+        - name: orin
+          image: orin:dev
           imagePullPolicy: IfNotPresent
           ports:
             - { containerPort: 8080, name: http }
           envFrom:
-            - secretRef: { name: k8s-ui }
+            - secretRef: { name: orin }
           readinessProbe:
             httpGet: { path: /readyz, port: 8080 }
             initialDelaySeconds: 5
@@ -50,7 +50,7 @@ spec:
             httpGet: { path: /healthz, port: 8080 }
             initialDelaySeconds: 10
           volumeMounts:
-            - { name: repo-cache, mountPath: /tmp/k8s-ui-repos }
+            - { name: repo-cache, mountPath: /tmp/orin-repos }
       volumes:
         - name: repo-cache
           emptyDir: {}

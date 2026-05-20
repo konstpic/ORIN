@@ -6,25 +6,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: k8s-ui-apiserver
-  namespace: k8s-ui
+  name: orin-apiserver
+  namespace: orin
   labels:
-    app.kubernetes.io/name: k8s-ui-apiserver
+    app.kubernetes.io/name: orin-apiserver
     app.kubernetes.io/component: apiserver
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app.kubernetes.io/name: k8s-ui-apiserver
+      app.kubernetes.io/name: orin-apiserver
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: k8s-ui-apiserver
+        app.kubernetes.io/name: orin-apiserver
     spec:
-      serviceAccountName: k8s-ui
+      serviceAccountName: orin
       containers:
       - name: apiserver
-        image: k8s-ui:dev
+        image: orin:dev
         args: ["apiserver"]
         ports:
         - containerPort: 8080
@@ -33,24 +33,24 @@ spec:
         - name: DATABASE_URL
           valueFrom:
             secretKeyRef:
-              name: k8s-ui-secret
+              name: orin-secret
               key: database-url
         - name: ADMIN_TOKEN
           valueFrom:
             secretKeyRef:
-              name: k8s-ui-secret
+              name: orin-secret
               key: admin-token
         - name: ENCRYPTION_KEY
           valueFrom:
             secretKeyRef:
-              name: k8s-ui-secret
+              name: orin-secret
               key: encryption-key
         - name: IN_CLUSTER
           value: "true"
         - name: WEB_ASSETS_DIR
           value: /app/web
         - name: REPO_SERVER_ADDR
-          value: "k8s-ui-reposerver:50051"
+          value: "orin-reposerver:50051"
         readinessProbe:
           httpGet:
             path: /healthz
@@ -74,11 +74,11 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-ui-apiserver
-  namespace: k8s-ui
+  name: orin-apiserver
+  namespace: orin
 spec:
   selector:
-    app.kubernetes.io/name: k8s-ui-apiserver
+    app.kubernetes.io/name: orin-apiserver
   ports:
   - port: 8080
     targetPort: 8080

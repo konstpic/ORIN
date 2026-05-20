@@ -8,7 +8,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // Enforcer validates GitOps operations against project policies.

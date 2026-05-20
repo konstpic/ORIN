@@ -3,11 +3,11 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: k8s-ui-postgres
-  namespace: k8s-ui
+  name: orin-postgres
+  namespace: orin
 spec:
   selector:
-    app: k8s-ui-postgres
+    app: orin-postgres
   ports:
     - port: 5432
       targetPort: 5432
@@ -15,16 +15,16 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: k8s-ui-postgres
-  namespace: k8s-ui
+  name: orin-postgres
+  namespace: orin
 spec:
-  serviceName: k8s-ui-postgres
+  serviceName: orin-postgres
   replicas: 1
   selector:
-    matchLabels: { app: k8s-ui-postgres }
+    matchLabels: { app: orin-postgres }
   template:
     metadata:
-      labels: { app: k8s-ui-postgres }
+      labels: { app: orin-postgres }
     spec:
       containers:
         - name: postgres

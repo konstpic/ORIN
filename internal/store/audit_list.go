@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // ListRecent returns newest audit rows up to limit (capped at 5000).

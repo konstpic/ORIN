@@ -1,4 +1,4 @@
--- Initial schema for k8s-ui MVP.
+-- Initial schema for orin MVP.
 -- All identifiers are UUIDs generated app-side (we don't rely on a pg extension).
 
 CREATE TABLE users (

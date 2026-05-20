@@ -25,7 +25,7 @@ const DEFAULTS: Record<string, string> = {
   autoSyncGracePeriod: "30m",
   syncDenyRangeUtc: "",
   appsCatalogRepoUrl: "",
-  appsCatalogPath: "k8s-ui/apps.yaml",
+  appsCatalogPath: "orin/apps.yaml",
   appsCatalogInterval: "5m",
 };
 

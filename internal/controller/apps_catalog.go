@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/k8s-ui/k8s-ui/internal/appcatalog"
-	"github.com/k8s-ui/k8s-ui/internal/store"
+	"github.com/orin/orin/internal/appcatalog"
+	"github.com/orin/orin/internal/store"
 )
 
 func (c *Controller) reconcileAppsCatalog(ctx context.Context) {

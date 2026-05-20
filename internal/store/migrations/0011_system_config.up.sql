@@ -17,6 +17,6 @@ INSERT INTO system_config (key, value) VALUES
     ('auto_sync_grace_period', '30m'),
     ('sync_deny_range_utc', ''),
     ('apps_catalog_repo_url', ''),
-    ('apps_catalog_path', 'k8s-ui/apps.yaml'),
+    ('apps_catalog_path', 'orin/apps.yaml'),
     ('apps_catalog_interval', '5m')
 ON CONFLICT (key) DO NOTHING;

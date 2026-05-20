@@ -1,5 +1,5 @@
 {
-  "name": "k8s-ui-web",
+  "name": "orin-web",
   "private": true,
   "version": "0.1.0",
   "type": "module",

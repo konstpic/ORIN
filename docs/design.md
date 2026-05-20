@@ -15,7 +15,7 @@ See [README.md](../README.md) for repository layout and quick start.
 - **Persistence:** PostgreSQL, accessed via `pgx` + hand-written SQL.
   Schema migrations via golang-migrate embedded in the binary.
 - **K8s integration:** client-go dynamic informers; server-side apply with
-  field manager `k8s-ui`; tracking label
+  field manager `orin`; tracking label
   `app.kubernetes.io/instance=<appName>` ties live resources back to apps.
 
 ## Components
@@ -72,7 +72,7 @@ See [README.md](../README.md) for repository layout and quick start.
 
 1. Pulls oldest `Pending` sync op for the app.
 2. Re-renders manifests at the requested revision.
-3. Server-side applies each object with `fieldManager: k8s-ui`,
+3. Server-side applies each object with `fieldManager: orin`,
    `force: true`.
 4. If `prune` is enabled, deletes any objects bearing the tracking label
    that are not present in the desired set.

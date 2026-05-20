@@ -27,7 +27,7 @@ export function LoginPage() {
         onSubmit={onSubmit}
         className="w-80 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-xl space-y-4"
       >
-        <h1 className="text-lg font-semibold text-[var(--color-text)]">k8s-ui</h1>
+        <h1 className="text-lg font-semibold text-[var(--color-text)]">ORIN</h1>
         <p className="text-sm text-[var(--color-text-muted)]">Sign in with the admin token</p>
         <input
           type="password"

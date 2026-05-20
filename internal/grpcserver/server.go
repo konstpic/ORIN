@@ -14,9 +14,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
-	pb "github.com/k8s-ui/k8s-ui/proto/reposerver"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/reposerver"
+	pb "github.com/orin/orin/proto/reposerver"
 )
 
 // Server is the gRPC service implementation. It wraps Engine for all

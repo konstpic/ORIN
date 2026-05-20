@@ -26,11 +26,11 @@ import { relativeTime } from "../utils/relativeTime";
 
 const maxGroupedPodsShown = 20;
 
-/** Returns true if a ResourceNode is a real (child) Argo/k8s-ui Application CRD, not the synthetic root. */
+/** Returns true if a ResourceNode is a real (child) Argo/orin Application CRD, not the synthetic root. */
 function isChildAppNode(n: ResourceNode): boolean {
   return (
     n.kind === "Application" &&
-    (n.group === "argoproj.io" || n.group === "k8s-ui.io") &&
+    (n.group === "argoproj.io" || n.group === "orin.io") &&
     !n.uid.startsWith("synthetic:app:")
   );
 }

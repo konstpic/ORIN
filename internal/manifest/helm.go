@@ -15,8 +15,8 @@ import (
 // Helm renders a local Helm chart directory via `helm template` (Helm v3
 // binary must be on PATH).
 type Helm struct {
-	ReleaseName     string
-	Namespace       string
+	ReleaseName string
+	Namespace   string
 	// ExtraValueFiles are paths relative to dir passed as -f layers before ExtraValuesYAML.
 	// Equivalent to Argo CD spec.source.helm.valueFiles.
 	ExtraValueFiles []string
@@ -49,7 +49,7 @@ func (h *Helm) Render(dir string) ([]*unstructured.Unstructured, error) {
 	// App-level JSON/YAML override (equivalent to an inline valuesObject / values string).
 	var valuesFile string
 	if len(bytes.TrimSpace(h.ExtraValuesYAML)) > 0 && string(bytes.TrimSpace(h.ExtraValuesYAML)) != "null" {
-		f, err := os.CreateTemp("", "k8s-ui-helm-values-*.yaml")
+		f, err := os.CreateTemp("", "orin-helm-values-*.yaml")
 		if err != nil {
 			return nil, fmt.Errorf("helm values temp file: %w", err)
 		}

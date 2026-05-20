@@ -47,10 +47,10 @@ func appProjectObj(apiVersion, name string) *unstructured.Unstructured {
 	}}
 }
 
-// ---- k8s-ui.io group ----
+// ---- orin.io group ----
 
 func TestTryEntryFromObject_KuiApplication(t *testing.T) {
-	u := applicationObj("k8s-ui.io/v1alpha1", "my-app")
+	u := applicationObj("orin.io/v1alpha1", "my-app")
 	app, _, kind, ok, err := TryEntryFromObject(u, fixedResolver("in-cluster"))
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
@@ -70,7 +70,7 @@ func TestTryEntryFromObject_KuiApplication(t *testing.T) {
 }
 
 func TestTryEntryFromObject_KuiAppProject(t *testing.T) {
-	u := appProjectObj("k8s-ui.io/v1alpha1", "my-project")
+	u := appProjectObj("orin.io/v1alpha1", "my-project")
 	_, proj, kind, ok, err := TryEntryFromObject(u, fixedResolver("in-cluster"))
 	if err != nil || !ok {
 		t.Fatalf("ok=%v err=%v", ok, err)
@@ -138,7 +138,7 @@ func TestTryEntryFromObject_ConfigMap_Ignored(t *testing.T) {
 
 func TestTryEntryFromObject_UnknownKind_Ignored(t *testing.T) {
 	u := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "k8s-ui.io/v1alpha1",
+		"apiVersion": "orin.io/v1alpha1",
 		"kind":       "SomethingElse",
 		"metadata":   map[string]interface{}{"name": "x"},
 	}}
@@ -152,7 +152,7 @@ func TestTryEntryFromObject_UnknownKind_Ignored(t *testing.T) {
 
 func TestTryEntryFromObject_Application_MissingName(t *testing.T) {
 	u := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "k8s-ui.io/v1alpha1",
+		"apiVersion": "orin.io/v1alpha1",
 		"kind":       "Application",
 		"metadata":   map[string]interface{}{},
 		"spec": map[string]interface{}{
@@ -168,7 +168,7 @@ func TestTryEntryFromObject_Application_MissingName(t *testing.T) {
 
 func TestTryEntryFromObject_Application_IgnoreDifferences(t *testing.T) {
 	u := &unstructured.Unstructured{Object: map[string]interface{}{
-		"apiVersion": "k8s-ui.io/v1alpha1",
+		"apiVersion": "orin.io/v1alpha1",
 		"kind":       "Application",
 		"metadata":   map[string]interface{}{"name": "idf-app"},
 		"spec": map[string]interface{}{
@@ -212,7 +212,7 @@ func TestTryEntryFromObject_Nil(t *testing.T) {
 }
 
 func TestTryEntryFromObject_NilResolver(t *testing.T) {
-	u := applicationObj("k8s-ui.io/v1alpha1", "app")
+	u := applicationObj("orin.io/v1alpha1", "app")
 	_, _, _, ok, err := TryEntryFromObject(u, nil)
 	if err != nil || ok {
 		t.Fatalf("expected skip on nil resolver, ok=%v err=%v", ok, err)
@@ -227,8 +227,8 @@ func TestIsControlPlaneObject(t *testing.T) {
 		kind       string
 		want       bool
 	}{
-		{"k8s-ui.io/v1alpha1", "Application", true},
-		{"k8s-ui.io/v1alpha1", "AppProject", true},
+		{"orin.io/v1alpha1", "Application", true},
+		{"orin.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "Application", true},
 		{"argoproj.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "ApplicationSet", false}, // not a managed kind

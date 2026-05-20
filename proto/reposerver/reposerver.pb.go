@@ -1098,7 +1098,7 @@ const file_proto_reposerver_reposerver_proto_rawDesc = "" +
 	"\vListCommits\x12\x1e.reposerver.ListCommitsRequest\x1a\x1f.reposerver.ListCommitsResponse\x12H\n" +
 	"\tGetCommit\x12\x1c.reposerver.GetCommitRequest\x1a\x1d.reposerver.GetCommitResponse\x12H\n" +
 	"\tDiffPaths\x12\x1c.reposerver.DiffPathsRequest\x1a\x1d.reposerver.DiffPathsResponse\x12N\n" +
-	"\vReadRawFile\x12\x1e.reposerver.ReadRawFileRequest\x1a\x1f.reposerver.ReadRawFileResponseB8Z6github.com/k8s-ui/k8s-ui/proto/reposerver;reposerverpbb\x06proto3"
+	"\vReadRawFile\x12\x1e.reposerver.ReadRawFileRequest\x1a\x1f.reposerver.ReadRawFileResponseB4Z2github.com/orin/orin/proto/reposerver;reposerverpbb\x06proto3"
 
 var (
 	file_proto_reposerver_reposerver_proto_rawDescOnce sync.Once

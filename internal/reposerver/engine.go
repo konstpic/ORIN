@@ -20,9 +20,9 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/git"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/git"
+	"github.com/orin/orin/internal/manifest"
 )
 
 // RenderResult describes one rendered revision.

@@ -20,7 +20,7 @@ linters:
 
 linters-settings:
   goimports:
-    local-prefixes: github.com/k8s-ui/k8s-ui
+    local-prefixes: github.com/orin/orin
   revive:
     rules:
       - name: var-naming

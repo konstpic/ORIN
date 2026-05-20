@@ -41,14 +41,14 @@ type AppDestination struct {
 // SyncPolicy mirrors domain.SyncPolicy.
 type SyncPolicy struct {
 	Automated *AutomatedSync `json:"automated,omitempty"`
-	// SyncOptions are Argo-style strings, e.g. CreateNamespace=true (subset honored by k8s-ui).
+	// SyncOptions are Argo-style strings, e.g. CreateNamespace=true (subset honored by orin).
 	SyncOptions []string `json:"syncOptions,omitempty"`
 	// ManagedNamespaceMetadata is merged into the Namespace when create namespace runs.
 	ManagedNamespaceMetadata *ManagedNamespaceMetadata `json:"managedNamespaceMetadata,omitempty"`
 	// CreateNamespace applies the destination namespace before other manifests (Argo sync-option).
 	CreateNamespace bool `json:"createNamespace,omitempty"`
 	// MaterializeChildApps is deprecated and ignored. Child applications are now always
-	// materialized from k8s-ui.io/Application and argoproj.io/Application objects rendered
+	// materialized from orin.io/Application and argoproj.io/Application objects rendered
 	// by the parent chart.
 	MaterializeChildApps *bool `json:"materializeChildApps,omitempty"`
 	// IgnoreDifferences suppresses OutOfSync for specific resource fields (Argo-compatible).
@@ -300,44 +300,44 @@ type Cluster struct {
 type ClusterHealth struct {
 	ClusterID   string `json:"clusterId"`
 	ClusterName string `json:"clusterName"`
-	Status      string `json:"status"`      // "Ready", "Unreachable", "Degraded"
-	K8sVersion  string `json:"k8sVersion"`  // e.g. "v1.29.0"
+	Status      string `json:"status"`     // "Ready", "Unreachable", "Degraded"
+	K8sVersion  string `json:"k8sVersion"` // e.g. "v1.29.0"
 	NodeCount   int    `json:"nodeCount"`
-	AppCount    int    `json:"appCount"`    // apps targeting this cluster
+	AppCount    int    `json:"appCount"` // apps targeting this cluster
 	Error       string `json:"error,omitempty"`
 }
 
 // NodeInfo describes a Kubernetes node with resource usage.
 type NodeInfo struct {
-	Name              string    `json:"name"`
-	Roles             []string  `json:"roles"`         // e.g. ["control-plane", "master"]
-	KubeletVersion    string    `json:"kubeletVersion"`
-	OS                string    `json:"os"`            // e.g. "linux"
-	Arch              string    `json:"arch"`          // e.g. "arm64"
-	Status            string    `json:"status"`        // "Ready", "NotReady"
-	CPUCapacity       string    `json:"cpuCapacity"`   // e.g. "8"
-	CPUAllocatable    string    `json:"cpuAllocatable"`// e.g. "7800m"
-	CPUUsed           string    `json:"cpuUsed"`       // e.g. "3200m"
-	CPUUsedPercent    float64   `json:"cpuUsedPercent"`
-	MemCapacity       string    `json:"memCapacity"`   // e.g. "16Gi"
-	MemAllocatable    string    `json:"memAllocatable"`// e.g. "15Gi"
-	MemUsed           string    `json:"memUsed"`       // e.g. "8Gi"
-	MemUsedPercent    float64   `json:"memUsedPercent"`
-	PodCount          int       `json:"podCount"`
-	Pods              []PodRef  `json:"pods"`          // pods scheduled on this node
-	CreatedAt         time.Time `json:"createdAt"`
+	Name           string    `json:"name"`
+	Roles          []string  `json:"roles"` // e.g. ["control-plane", "master"]
+	KubeletVersion string    `json:"kubeletVersion"`
+	OS             string    `json:"os"`             // e.g. "linux"
+	Arch           string    `json:"arch"`           // e.g. "arm64"
+	Status         string    `json:"status"`         // "Ready", "NotReady"
+	CPUCapacity    string    `json:"cpuCapacity"`    // e.g. "8"
+	CPUAllocatable string    `json:"cpuAllocatable"` // e.g. "7800m"
+	CPUUsed        string    `json:"cpuUsed"`        // e.g. "3200m"
+	CPUUsedPercent float64   `json:"cpuUsedPercent"`
+	MemCapacity    string    `json:"memCapacity"`    // e.g. "16Gi"
+	MemAllocatable string    `json:"memAllocatable"` // e.g. "15Gi"
+	MemUsed        string    `json:"memUsed"`        // e.g. "8Gi"
+	MemUsedPercent float64   `json:"memUsedPercent"`
+	PodCount       int       `json:"podCount"`
+	Pods           []PodRef  `json:"pods"` // pods scheduled on this node
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 // PodRef is a lightweight pod reference for node view.
 type PodRef struct {
 	Name      string `json:"name"`
 	Namespace string `json:"namespace"`
-	Kind      string `json:"kind"`       // owner kind (Deployment, StatefulSet, etc.)
-	Owner     string `json:"owner"`      // owner name
-	CPUReq    string `json:"cpuReq"`     // requested CPU
-	MemReq    string `json:"memReq"`     // requested memory
-	Status    string `json:"status"`     // Running, Pending, etc.
-	Health    string `json:"health"`     // Healthy, Progressing, Degraded
+	Kind      string `json:"kind"`   // owner kind (Deployment, StatefulSet, etc.)
+	Owner     string `json:"owner"`  // owner name
+	CPUReq    string `json:"cpuReq"` // requested CPU
+	MemReq    string `json:"memReq"` // requested memory
+	Status    string `json:"status"` // Running, Pending, etc.
+	Health    string `json:"health"` // Healthy, Progressing, Degraded
 }
 
 // ProjectResourceRule is one entry in a cluster/namespace resource list.
@@ -538,12 +538,12 @@ type PermissionInfo struct {
 
 // UserInfo is the public view of a user with their roles.
 type UserInfo struct {
-	ID          string         `json:"id"`
-	Email       string         `json:"email"`
-	DisplayName string         `json:"displayName,omitempty"`
-	Role        string         `json:"role"`
-	Active      bool           `json:"active"`
-	Bindings    []RoleBinding  `json:"bindings,omitempty"`
+	ID          string        `json:"id"`
+	Email       string        `json:"email"`
+	DisplayName string        `json:"displayName,omitempty"`
+	Role        string        `json:"role"`
+	Active      bool          `json:"active"`
+	Bindings    []RoleBinding `json:"bindings,omitempty"`
 }
 
 // CreateUserRequest is the body for creating a user.

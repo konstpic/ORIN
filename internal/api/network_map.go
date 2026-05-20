@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/k8s"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 // NetworkMapNode is a node in the application network map.

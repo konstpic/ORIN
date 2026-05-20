@@ -1,6 +1,6 @@
 openapi: 3.0.3
 info:
-  title: k8s-ui API
+  title: orin API
   description: GitOps dashboard control-plane API.
   version: 0.1.0
 servers:
@@ -596,7 +596,7 @@ components:
         syncOptions:
           type: array
           items: { type: string }
-          description: Argo-style options (e.g. CreateNamespace=true); subset interpreted by k8s-ui
+          description: Argo-style options (e.g. CreateNamespace=true); subset interpreted by orin
         managedNamespaceMetadata:
           type: object
           properties:

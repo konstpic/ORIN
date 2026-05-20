@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/restmapper"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
+	"github.com/orin/orin/internal/config"
 )
 
 // ClusterManager holds the per-cluster K8s clients and informer factory.

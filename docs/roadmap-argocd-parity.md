@@ -1,6 +1,6 @@
 # Roadmap: parity with Argo CD
 
-This document fixes the **target horizon** for k8s_ui relative to [Argo CD](https://argo-cd.readthedocs.io/) and maps work to phases. It complements [design.md](design.md).
+This document fixes the **target horizon** for orin relative to [Argo CD](https://argo-cd.readthedocs.io/) and maps work to phases. It complements [design.md](design.md).
 
 ## Target horizons
 
@@ -29,10 +29,10 @@ This document fixes the **target horizon** for k8s_ui relative to [Argo CD](http
 
 ## Sync policy notes (P3 extensions)
 
-- **Hooks:** `argocd.argoproj.io/hook` / `gitops.k8s-ui.dev/hook` (`PreSync`, `PostSync`, …) order resources before sync-wave ordering within each phase.
+- **Hooks:** `argocd.argoproj.io/hook` / `gitops.orin.dev/hook` (`PreSync`, `PostSync`, …) order resources before sync-wave ordering within each phase.
 - **Sync windows:** `SYNC_DENY_RANGE_UTC` (e.g. `22:00-06:00`) blocks manual API sync and auto-sync during the UTC window.
 - **Retries:** `SYNC_APPLY_RETRIES` (default 1) retries each resource apply with linear backoff.
 
 ## How we use the local Argo CD checkout
 
-Use `/path/to/argo-cd` only as a **reference** for API shapes and UX patterns (e.g. `server/application`, `reposerver/repository`). k8s_ui stays a smaller REST surface and does not embed Argo’s gRPC stack.
+Use `/path/to/argo-cd` only as a **reference** for API shapes and UX patterns (e.g. `server/application`, `reposerver/repository`). orin stays a smaller REST surface and does not embed Argo’s gRPC stack.

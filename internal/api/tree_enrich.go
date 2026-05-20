@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/manifest"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 func resourceAPIKey(group, kind, namespace, name string) string {

@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 BIN_DIR := ./bin
-BINARY := $(BIN_DIR)/k8s-ui
-PKG := github.com/k8s-ui/k8s-ui
+BINARY := $(BIN_DIR)/orin
+PKG := github.com/orin/orin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X $(PKG)/internal/config.Version=$(VERSION)
 
@@ -13,19 +13,19 @@ $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
 build: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/k8s-ui
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/orin
 
 # Build separate binaries for scaled deployment
 build-all: build build-apiserver build-controller build-reposerver
 
 build-apiserver: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-apiserver ./cmd/k8s-ui
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-apiserver ./cmd/orin
 
 build-controller: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-controller ./cmd/k8s-ui
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-controller ./cmd/orin
 
 build-reposerver: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/k8s-ui-reposerver ./cmd/k8s-ui
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-reposerver ./cmd/orin
 
 test:
 	go test ./... -race -count=1
@@ -48,7 +48,7 @@ clean:
 	rm -rf $(BIN_DIR)
 
 docker:
-	docker build -t k8s-ui:$(VERSION) -t k8s-ui:dev -f Dockerfile .
+	docker build -t orin:$(VERSION) -t orin:dev -f Dockerfile .
 
 frontend:
 	cd web && npm install && npm run dev

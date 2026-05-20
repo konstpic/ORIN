@@ -2,6 +2,6 @@
 # on the node (same containerd store as docker build). Most Docker Desktop
 # setups do NOT satisfy this without extra configuration.
 image:
-  repository: k8s-ui
+  repository: orin
   tag: local
   pullPolicy: Never

@@ -13,15 +13,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
-	"github.com/k8s-ui/k8s-ui/internal/project"
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
-	"github.com/k8s-ui/k8s-ui/internal/rbacenforce"
-	"github.com/k8s-ui/k8s-ui/internal/store"
-	apiv1 "github.com/k8s-ui/k8s-ui/pkg/api/v1"
+	"github.com/orin/orin/internal/auth"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/manifest"
+	"github.com/orin/orin/internal/project"
+	"github.com/orin/orin/internal/rbac"
+	"github.com/orin/orin/internal/rbacenforce"
+	"github.com/orin/orin/internal/store"
+	apiv1 "github.com/orin/orin/pkg/api/v1"
 )
 
 func (s *Server) listApplications(w http.ResponseWriter, r *http.Request) {
@@ -501,13 +501,13 @@ func (s *Server) appResourceTree(w http.ResponseWriter, r *http.Request) {
 			sync = string(childStatus.SyncStatus)
 		}
 		out.Nodes = append(out.Nodes, apiv1.ResourceNode{
-			Group:   "k8s-ui.io",
-			Version: "v1",
-			Kind:    "Application",
-			Name:    child.Name,
-			UID:     child.ID,
-			Health:  health,
-			Sync:    sync,
+			Group:             "orin.io",
+			Version:           "v1",
+			Kind:              "Application",
+			Name:              child.Name,
+			UID:               child.ID,
+			Health:            health,
+			Sync:              sync,
 			CreationTimestamp: child.CreatedAt.UTC().Format(time.RFC3339),
 		})
 	}

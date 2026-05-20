@@ -7,8 +7,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/manifest"
 )
 
 // collectLiveForAPI assembles the list of live objects matching the

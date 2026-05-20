@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ArgoDestinationResolve maps Argo spec.destination.{server,name} to a k8s-ui cluster name.
+// ArgoDestinationResolve maps Argo spec.destination.{server,name} to a orin cluster name.
 type ArgoDestinationResolve func(server, name string) (clusterName string, err error)
 
 // TryArgoApplicationEntry maps one unstructured Application (argoproj.io) to a catalog Entry.
@@ -177,7 +177,7 @@ func pickArgoSource(spec map[string]interface{}) (map[string]interface{}, bool) 
 		if len(arr) > 1 {
 			// Only the first source is used. Log a structured warning so operators
 			// can identify applications that need manual attention after migration.
-			slog.Warn("argo application: spec.sources has multiple entries — only the first source is used; create separate k8s-ui Applications for the remaining sources",
+			slog.Warn("argo application: spec.sources has multiple entries — only the first source is used; create separate orin Applications for the remaining sources",
 				"source_count", len(arr))
 		}
 		if m, ok := arr[0].(map[string]interface{}); ok {

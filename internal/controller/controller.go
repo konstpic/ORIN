@@ -15,15 +15,15 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/crypto"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
-	"github.com/k8s-ui/k8s-ui/internal/notify"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
-	"github.com/k8s-ui/k8s-ui/internal/store"
-	"github.com/k8s-ui/k8s-ui/internal/ws"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/crypto"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/manifest"
+	"github.com/orin/orin/internal/notify"
+	"github.com/orin/orin/internal/reposerver"
+	"github.com/orin/orin/internal/store"
+	"github.com/orin/orin/internal/ws"
 )
 
 // Controller orchestrates reconcile + sync execution for all applications.

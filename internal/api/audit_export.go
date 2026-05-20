@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
+	"github.com/orin/orin/internal/auth"
 )
 
 func (s *Server) exportAuditLog(w http.ResponseWriter, r *http.Request) {

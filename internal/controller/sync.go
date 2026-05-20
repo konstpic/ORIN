@@ -9,12 +9,12 @@ import (
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
-	"github.com/k8s-ui/k8s-ui/internal/metrics"
-	"github.com/k8s-ui/k8s-ui/internal/notify"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/manifest"
+	"github.com/orin/orin/internal/metrics"
+	"github.com/orin/orin/internal/notify"
 )
 
 // runSync executes the next pending SyncOperation for the application.
@@ -51,7 +51,7 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 		return err
 	}
 
-	// Strip control-plane objects (k8s-ui.io/* and argoproj.io Application/AppProject)
+	// Strip control-plane objects (orin.io/* and argoproj.io Application/AppProject)
 	// before applying: these declare child resources in the DB but must never be
 	// sent to the destination Kubernetes cluster.
 	applicable := manifest.FilterApplicable(rendered.Objects)
@@ -144,7 +144,7 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	}
 
 	c.finishOp(ctx, app, op, finalStatus, opMsg)
-	
+
 	// Immediately compute health from live resources instead of defaulting to Progressing
 	_, healths, err := c.collectLive(ctx, app, applicable, kc)
 	var healthStatus domain.HealthStatus
@@ -153,7 +153,7 @@ func (c *Controller) runSync(ctx context.Context, appName string) error {
 	} else {
 		healthStatus = k8s.Aggregate(healths)
 	}
-	
+
 	now := time.Now().UTC()
 	st := &domain.ApplicationStatus{
 		AppID:            app.ID,
@@ -265,7 +265,7 @@ func syncPartialFailureMessage(op *domain.SyncOperation, st domain.SyncOpStatus)
 	if len(failed) == 0 {
 		return ""
 	}
-	
+
 	// If there are many failures, show only first 3 and count
 	if len(failed) > 3 {
 		return fmt.Sprintf("%d resources failed. First 3: %s", len(failed), strings.Join(failed[:3], "; "))

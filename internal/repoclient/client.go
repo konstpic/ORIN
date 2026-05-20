@@ -6,8 +6,8 @@ package repoclient
 import (
 	"context"
 
-	"github.com/k8s-ui/k8s-ui/internal/git"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
+	"github.com/orin/orin/internal/git"
+	"github.com/orin/orin/internal/reposerver"
 )
 
 // Client is the interface used by controller and API to interact with the

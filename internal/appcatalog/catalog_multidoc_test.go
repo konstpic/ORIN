@@ -9,7 +9,7 @@ func fixedCatalogResolver(name string) ArgoDestinationResolve {
 }
 
 func TestParseCatalogYAML_MultiDoc(t *testing.T) {
-	yaml := `apiVersion: k8s-ui.io/v1alpha1
+	yaml := `apiVersion: orin.dev/v1alpha1
 kind: Application
 metadata:
   name: app1
@@ -23,7 +23,7 @@ spec:
     name: in-cluster
     namespace: app1-ns
 ---
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: AppProject
 metadata:
   name: team-a
@@ -109,7 +109,7 @@ metadata:
 data:
   key: value
 ---
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: Application
 metadata:
   name: real-app

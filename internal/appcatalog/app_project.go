@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
-// tryAppProjectEntry maps an unstructured AppProject object (k8s-ui.io or
+// tryAppProjectEntry maps an unstructured AppProject object (orin.io or
 // argoproj.io) to a ProjectEntry.  Both groups use the same spec shape
 // (description, policies.sourceRepos, policies.destinations, etc.) mirroring
 // Argo CD AppProject.

@@ -1,4 +1,4 @@
-// Package domain holds the core entity types used by the k8s-ui control
+// Package domain holds the core entity types used by the orin control
 // plane. These mirror rows in the Postgres schema and are the canonical
 // in-memory representation used by handlers, reconcilers, and the API DTOs.
 package domain
@@ -85,7 +85,7 @@ type IgnoreDifferenceRule struct {
 // SyncPolicy controls automation knobs on an Application.
 type SyncPolicy struct {
 	Automated *AutomatedSync `json:"automated,omitempty"`
-	// SyncOptions lists Argo-style options, e.g. CreateNamespace=true (subset is interpreted by k8s-ui).
+	// SyncOptions lists Argo-style options, e.g. CreateNamespace=true (subset is interpreted by orin).
 	SyncOptions []string `json:"syncOptions,omitempty"`
 	// ManagedNamespaceMetadata is applied when EffectiveCreateNamespace() is true.
 	ManagedNamespaceMetadata *ManagedNamespaceMetadata `json:"managedNamespaceMetadata,omitempty"`
@@ -111,7 +111,7 @@ type ProjectResourceRule struct {
 type ProjectDestination struct {
 	// Server is the cluster server URL; "*" = any cluster.
 	Server string `json:"server,omitempty"`
-	// Name is the k8s-ui cluster name; "*" = any cluster.
+	// Name is the orin cluster name; "*" = any cluster.
 	Name string `json:"name,omitempty"`
 	// Namespace pattern; "*" = any namespace.
 	Namespace string `json:"namespace"`
@@ -166,14 +166,14 @@ type Application struct {
 // ApplicationStatus is the hot-path status row, separated from Application
 // to limit row churn during high-frequency reconciles.
 type ApplicationStatus struct {
-	AppID              string       `json:"appId"`
-	SyncStatus         SyncStatus   `json:"syncStatus"`
-	HealthStatus       HealthStatus `json:"healthStatus"`
-	ObservedRevision   string       `json:"observedRevision"`
-	LastSyncedAt       *time.Time   `json:"lastSyncedAt,omitempty"`
-	LastManualApplyAt  *time.Time   `json:"lastManualApplyAt,omitempty"`
-	Message            string       `json:"message"`
-	UpdatedAt          time.Time    `json:"updatedAt"`
+	AppID             string       `json:"appId"`
+	SyncStatus        SyncStatus   `json:"syncStatus"`
+	HealthStatus      HealthStatus `json:"healthStatus"`
+	ObservedRevision  string       `json:"observedRevision"`
+	LastSyncedAt      *time.Time   `json:"lastSyncedAt,omitempty"`
+	LastManualApplyAt *time.Time   `json:"lastManualApplyAt,omitempty"`
+	Message           string       `json:"message"`
+	UpdatedAt         time.Time    `json:"updatedAt"`
 }
 
 // SyncRunRequest is stored with a pending sync and read by the controller.
@@ -232,12 +232,12 @@ type AuditEntry struct {
 type NotificationEventType string
 
 const (
-	EventSyncSucceeded    NotificationEventType = "sync_succeeded"
-	EventSyncFailed       NotificationEventType = "sync_failed"
-	EventHealthDegraded   NotificationEventType = "health_degraded"
-	EventHealthRecovered  NotificationEventType = "health_recovered"
-	EventAppOutOfSync     NotificationEventType = "app_out_of_sync"
-	EventAppSynced        NotificationEventType = "app_synced"
+	EventSyncSucceeded   NotificationEventType = "sync_succeeded"
+	EventSyncFailed      NotificationEventType = "sync_failed"
+	EventHealthDegraded  NotificationEventType = "health_degraded"
+	EventHealthRecovered NotificationEventType = "health_recovered"
+	EventAppOutOfSync    NotificationEventType = "app_out_of_sync"
+	EventAppSynced       NotificationEventType = "app_synced"
 )
 
 // NotificationType is the delivery channel type.
@@ -250,14 +250,14 @@ const (
 
 // NotificationConfig stores webhook/Slack delivery config per application.
 type NotificationConfig struct {
-	ID        string                 `json:"id"`
-	AppID     string                 `json:"appId"`
-	Name      string                 `json:"name"`
-	Type      NotificationType       `json:"type"`
-	URL       string                 `json:"url"`
+	ID        string                  `json:"id"`
+	AppID     string                  `json:"appId"`
+	Name      string                  `json:"name"`
+	Type      NotificationType        `json:"type"`
+	URL       string                  `json:"url"`
 	Events    []NotificationEventType `json:"events"`
-	Enabled   bool                   `json:"enabled"`
-	CreatedAt time.Time              `json:"createdAt"`
+	Enabled   bool                    `json:"enabled"`
+	CreatedAt time.Time               `json:"createdAt"`
 }
 
 // SyncHookPhase defines when a hook Job runs during the sync lifecycle.
@@ -283,14 +283,14 @@ type SyncHook struct {
 
 // SystemConfig holds runtime-overridable system settings.
 type SystemConfig struct {
-	ReconcileWorkers     int           `json:"reconcileWorkers"`
-	ReconcileResync      time.Duration `json:"reconcileResync"`
-	RepoPollInterval     time.Duration `json:"repoPollInterval"`
-	RepoRenderTimeout    time.Duration `json:"repoRenderTimeout"`
-	SyncApplyRetries     int           `json:"syncApplyRetries"`
-	AutoSyncGracePeriod  time.Duration `json:"autoSyncGracePeriod"`
-	SyncDenyRangeUTC     string        `json:"syncDenyRangeUtc"`
-	AppsCatalogRepoURL   string        `json:"appsCatalogRepoUrl"`
-	AppsCatalogPath      string        `json:"appsCatalogPath"`
-	AppsCatalogInterval  time.Duration `json:"appsCatalogInterval"`
+	ReconcileWorkers    int           `json:"reconcileWorkers"`
+	ReconcileResync     time.Duration `json:"reconcileResync"`
+	RepoPollInterval    time.Duration `json:"repoPollInterval"`
+	RepoRenderTimeout   time.Duration `json:"repoRenderTimeout"`
+	SyncApplyRetries    int           `json:"syncApplyRetries"`
+	AutoSyncGracePeriod time.Duration `json:"autoSyncGracePeriod"`
+	SyncDenyRangeUTC    string        `json:"syncDenyRangeUtc"`
+	AppsCatalogRepoURL  string        `json:"appsCatalogRepoUrl"`
+	AppsCatalogPath     string        `json:"appsCatalogPath"`
+	AppsCatalogInterval time.Duration `json:"appsCatalogInterval"`
 }

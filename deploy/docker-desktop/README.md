@@ -1,11 +1,11 @@
 # Docker Desktop Kubernetes
 
-Helm chart + script: build the app image, install **Postgres + k8s-ui** in namespace `k8s-ui`.
+Helm chart + script: build the app image, install **Postgres + orin** in namespace `orin`.
 
 ## How the image gets into the cluster
 
 Many Docker Desktop setups **do not** share the host `docker build` image store
-with Kubernetes containerd. The old `imagePullPolicy: Never` + `k8s-ui:local`
+with Kubernetes containerd. The old `imagePullPolicy: Never` + `orin:local`
 pattern then fails with **ErrImageNeverPull**.
 
 **Default (recommended):** `./deploy/docker-desktop/deploy.sh` **pushes the
@@ -20,7 +20,7 @@ Override TTL tag (must be a ttl.sh duration, e.g. `24h`, `1h`):
 TTL_SH_TTL=24h ./deploy/docker-desktop/deploy.sh
 ```
 
-**Optional (advanced):** if your kubelet can already see `k8s-ui:local` on the
+**Optional (advanced):** if your kubelet can already see `orin:local` on the
 node where the pod runs:
 
 ```bash
@@ -53,7 +53,7 @@ chmod +x deploy/docker-desktop/deploy.sh
 Port-forward (Docker Desktop often does not map `NodePort` to localhost well):
 
 ```bash
-kubectl port-forward -n k8s-ui svc/k8s-ui 8080:80
+kubectl port-forward -n orin svc/orin 8080:80
 ```
 
 Open **http://127.0.0.1:8080/** and sign in with **`devtoken`**.
@@ -61,13 +61,13 @@ Open **http://127.0.0.1:8080/** and sign in with **`devtoken`**.
 ## Tear down
 
 ```bash
-helm uninstall k8s-ui -n k8s-ui
-kubectl delete namespace k8s-ui
-kubectl delete clusterrolebinding k8s-ui 2>/dev/null || true
+helm uninstall orin -n orin
+kubectl delete namespace orin
+kubectl delete clusterrolebinding orin 2>/dev/null || true
 ```
 
 ## Files
 
 - `values.yaml` — shared overrides (no image pull policy here; set by script).
-- `values.never-pull.yaml` — local `k8s-ui:local` + `Never` (optional).
+- `values.never-pull.yaml` — local `orin:local` + `Never` (optional).
 - `deploy.sh` — build, optional ttl.sh push, `helm upgrade --install`.

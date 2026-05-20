@@ -1,6 +1,6 @@
-# k8s-ui — A GitOps Dashboard for Kubernetes
+# ORIN — GitOps Navigation System for Kubernetes
 
-`k8s-ui` is an ArgoCD-inspired GitOps platform written in Go (backend) and
+`ORIN` is an ArgoCD-inspired GitOps platform written in Go (backend) and
 React + TypeScript (frontend). Each *Application* declares a Git source (repo +
 path + revision) and a destination (cluster + namespace). The system
 continuously reconciles desired state (Git) with actual state (Kubernetes) and
@@ -15,19 +15,19 @@ exposes both via a dashboard.
 
 ```bash
 # Backend
-make build         # produce ./bin/k8s-ui
+make build         # produce ./bin/orin
 make test          # run unit tests
 
 # Database (Postgres 15+)
-createdb k8sui
-DATABASE_URL=postgres://localhost/k8sui?sslmode=disable \
-    ./bin/k8s-ui migrate up
+createdb orin
+DATABASE_URL=postgres://localhost/orin?sslmode=disable \
+    ./bin/orin migrate up
 
 # Run all three subprocesses in one binary
-DATABASE_URL=postgres://localhost/k8sui?sslmode=disable \
+DATABASE_URL=postgres://localhost/orin?sslmode=disable \
 ADMIN_TOKEN=secret \
 ENCRYPTION_KEY=$(openssl rand -hex 32) \
-    ./bin/k8s-ui all-in-one
+    ./bin/orin all-in-one
 
 # Frontend (dev)
 cd web && npm install && npm run dev
@@ -59,7 +59,7 @@ chart under `samples/hello-world/` — register two applications with paths
 `kubernetes` and `samples/hello-world` respectively. An Argo-style *umbrella*
 that only emits `Application` / `AppProject` CRDs (some layouts under
 `deploy/.helm`) is meant for Argo CD; if your umbrella instead renders real
-workloads, k8s-ui will apply all of them from that one Application.
+workloads, orin will apply all of them from that one Application.
 
 The release image installs the `helm` binary; for local `all-in-one`, install
 Helm v3 on your PATH.
@@ -70,16 +70,16 @@ lists `deployment.yaml` before `namespace.yaml`.
 
 ## Application catalog (Git-driven app list)
 
-To declare **several** k8s-ui applications (each with its own Git `repoUrl` and
+To declare **several** ORIN applications (each with its own Git `repoUrl` and
 `path`) from a single repository, enable the optional **apps catalog**:
 
 1. Register every `source.repoUrl` you reference in the catalog (same as for
    manually created applications).
-2. Commit a YAML file in one of those repos, for example `k8s-ui/apps.yaml`:
+2. Commit a YAML file in one of those repos, for example `orin/apps.yaml`:
 
 ```yaml
 # Canonical format: one document per object, separated by ---
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: Application
 metadata:
   name: web
@@ -93,7 +93,7 @@ spec:
     name: in-cluster
     namespace: gitops-demo
 ---
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: Application
 metadata:
   name: hello
@@ -114,7 +114,7 @@ spec:
 > **Legacy format (deprecated):** A single-document file with a top-level `applications:` list is still parsed but logs a deprecation warning on every poll. Migrate to the CRD format above.
 >
 > ```yaml
-> # Deprecated — migrate to k8s-ui.io/v1alpha1 Application objects above
+> # Deprecated — migrate to orin.dev/v1alpha1 Application objects above
 > applications:
 >   - name: web
 >     ...
@@ -126,15 +126,15 @@ spec:
 | Variable | Meaning |
 |----------|---------|
 | `APPS_CATALOG_REPO_URL` | HTTPS URL of the repo that contains the catalog file (must be registered). If unset, catalog sync is disabled. |
-| `APPS_CATALOG_PATH` | Path inside the repo (default `k8s-ui/apps.yaml`). |
+| `APPS_CATALOG_PATH` | Path inside the repo (default `orin/apps.yaml`). |
 | `APPS_CATALOG_REVISION` | Git ref to resolve (default `HEAD`). |
 | `APPS_CATALOG_INTERVAL` | Poll interval (default `5m`, minimum `10s` when catalog is enabled). |
 
 **Helm:** in `deploy/helm/values.yaml` set `appsCatalog.enabled: true` and
 `appsCatalog.repoUrl` to the **exact** same string as the repository URL in
-k8s-ui (including or omitting `.git` — it must match `Repositories`). Upgrade
+ORIN (including or omitting `.git` — it must match `Repositories`). Upgrade
 the release so the pod gets `APPS_CATALOG_*` env vars. If those variables are
-unset, `k8s-ui/apps.yaml` in Git is never read and no rows are created.
+unset, `orin/apps.yaml` in Git is never read and no rows are created.
 
 On each tick the controller **creates** missing applications and **updates**
 changed fields. Applications **removed** from the YAML file are **not**
@@ -145,14 +145,14 @@ the API.
 ### App of apps (child applications and projects)
 
 After each successful **status reconcile**, the controller automatically scans
-every rendered manifest from the parent Application for `k8s-ui.io/v1alpha1`
+every rendered manifest from the parent Application for `orin.dev/v1alpha1`
 or `argoproj.io/v1alpha1` `Application` and `AppProject` objects and **upserts**
 them into the database. No flag is needed — this behaviour is always active.
 
 **Child application template (in a parent chart's `templates/` dir):**
 
 ```yaml
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: Application
 metadata:
   name: child-app
@@ -163,7 +163,7 @@ spec:
     path: helm/child
     targetRevision: main
   destination:
-    name: in-cluster   # registered k8s-ui cluster name
+    name: in-cluster   # registered ORIN cluster name
     namespace: child-ns
   syncPolicy:
     automated:
@@ -175,7 +175,7 @@ spec:
 **Child project template:**
 
 ```yaml
-apiVersion: k8s-ui.io/v1alpha1
+apiVersion: orin.dev/v1alpha1
 kind: AppProject
 metadata:
   name: team-a
@@ -192,9 +192,9 @@ spec:
 manifests are recognised and produce the same result — useful for incremental
 migration from Argo CD.
 
-Control-plane objects (`k8s-ui.io/*` and `argoproj.io` Application/AppProject)
+Control-plane objects (`orin.dev/*` and `argoproj.io` Application/AppProject)
 are **never applied** to the destination cluster. Every `source.repoURL`
-referenced by a child Application must be registered in k8s-ui. Projects are
+referenced by a child Application must be registered in ORIN. Projects are
 upserted before Applications.
 
 This is orthogonal to **`APPS_CATALOG_*`** (global file poll): app-of-apps
@@ -225,7 +225,7 @@ and run `./deploy/docker-desktop/deploy.sh` (by default pushes a dev image to
 ## Repository layout
 
 ```
-cmd/k8s-ui/         # Cobra CLI entry point with apiserver/controller/reposerver/all-in-one/migrate
+cmd/orin/           # Cobra CLI entry point with apiserver/controller/reposerver/all-in-one/migrate
 internal/
   api/              # HTTP handlers, middleware, WebSocket hub
   auth/             # static-token middleware (OIDC pluggable later)

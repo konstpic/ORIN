@@ -7,7 +7,7 @@ import (
 )
 
 // IsControlPlaneObject reports whether an unstructured object belongs to a
-// k8s-ui or Argo control-plane API group and is a child-declaration kind
+// orin or Argo control-plane API group and is a child-declaration kind
 // (Application or AppProject).
 //
 // These objects appear in rendered manifests when a parent chart uses the
@@ -19,7 +19,7 @@ func IsControlPlaneObject(u *unstructured.Unstructured) bool {
 		return false
 	}
 	av := strings.ToLower(u.GetAPIVersion())
-	if !strings.HasPrefix(av, "k8s-ui.io") && !strings.Contains(av, "argoproj.io") {
+	if !strings.HasPrefix(av, "orin.io") && !strings.Contains(av, "argoproj.io") {
 		return false
 	}
 	kind := u.GetKind()

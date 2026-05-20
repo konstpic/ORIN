@@ -1,4 +1,4 @@
-// Package rbac implements role-based access control for k8s-ui.
+// Package rbac implements role-based access control for orin.
 // It defines roles, permissions, and role bindings that map users to roles
 // with optional project scoping.
 package rbac
@@ -14,14 +14,14 @@ type Permission string
 
 const (
 	// Application permissions
-	PermAppList    Permission = "applications:list"
-	PermAppGet     Permission = "applications:get"
-	PermAppCreate  Permission = "applications:create"
-	PermAppUpdate  Permission = "applications:update"
-	PermAppDelete  Permission = "applications:delete"
-	PermAppSync    Permission = "applications:sync"
+	PermAppList     Permission = "applications:list"
+	PermAppGet      Permission = "applications:get"
+	PermAppCreate   Permission = "applications:create"
+	PermAppUpdate   Permission = "applications:update"
+	PermAppDelete   Permission = "applications:delete"
+	PermAppSync     Permission = "applications:sync"
 	PermAppRollback Permission = "applications:rollback"
-	PermAppRefresh Permission = "applications:refresh"
+	PermAppRefresh  Permission = "applications:refresh"
 
 	// Pod / exec permissions
 	PermPodLogs   Permission = "pods:logs"
@@ -30,10 +30,10 @@ const (
 	PermPodDelete Permission = "pods:delete"
 
 	// Live resource permissions
-	PermLiveGet    Permission = "live-resource:get"
-	PermLiveEdit   Permission = "live-resource:edit"
-	PermLiveApply  Permission = "live-resource:apply"
-	PermLiveDelete Permission = "live-resource:delete"
+	PermLiveGet     Permission = "live-resource:get"
+	PermLiveEdit    Permission = "live-resource:edit"
+	PermLiveApply   Permission = "live-resource:apply"
+	PermLiveDelete  Permission = "live-resource:delete"
 	PermLiveRestart Permission = "live-resource:restart"
 
 	// Repository permissions

@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
+	"github.com/orin/orin/internal/auth"
 )
 
 type loginRequest struct {

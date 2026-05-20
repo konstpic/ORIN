@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/orin/orin/internal/auth"
+	"github.com/orin/orin/internal/rbac"
 )
 
 // RequirePermission returns a chi middleware that checks the user has the

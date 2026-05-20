@@ -12,8 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
-	"github.com/k8s-ui/k8s-ui/internal/appcatalog"
-	"github.com/k8s-ui/k8s-ui/internal/store"
+	"github.com/orin/orin/internal/appcatalog"
+	"github.com/orin/orin/internal/store"
 )
 
 // ArgoImportResult is one line of the import response.
@@ -172,7 +172,7 @@ func (s *Server) argoImportResolver(r *http.Request) appcatalog.ArgoDestinationR
 }
 
 // argoSourceWarnings inspects an Argo Application and returns human-readable
-// warnings for source features that k8s-ui does not support.
+// warnings for source features that orin does not support.
 func argoSourceWarnings(obj *unstructured.Unstructured) []string {
 	var w []string
 	spec, ok, _ := unstructured.NestedMap(obj.Object, "spec")

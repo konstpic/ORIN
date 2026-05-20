@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/k8s-ui/k8s-ui/internal/rbac"
+	"github.com/orin/orin/internal/rbac"
 )
 
 // RoleStore handles persistence of roles and their permissions.

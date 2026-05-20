@@ -12,16 +12,16 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/k8s-ui/k8s-ui/internal/auth"
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/controller"
-	"github.com/k8s-ui/k8s-ui/internal/crypto"
-	"github.com/k8s-ui/k8s-ui/internal/k8s"
-	"github.com/k8s-ui/k8s-ui/internal/metrics"
-	"github.com/k8s-ui/k8s-ui/internal/notify"
-	"github.com/k8s-ui/k8s-ui/internal/reposerver"
-	"github.com/k8s-ui/k8s-ui/internal/store"
-	"github.com/k8s-ui/k8s-ui/internal/ws"
+	"github.com/orin/orin/internal/auth"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/controller"
+	"github.com/orin/orin/internal/crypto"
+	"github.com/orin/orin/internal/k8s"
+	"github.com/orin/orin/internal/metrics"
+	"github.com/orin/orin/internal/notify"
+	"github.com/orin/orin/internal/reposerver"
+	"github.com/orin/orin/internal/store"
+	"github.com/orin/orin/internal/ws"
 )
 
 //go:embed openapi.yaml

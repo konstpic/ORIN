@@ -10,11 +10,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/k8s-ui/k8s-ui/internal/config"
-	"github.com/k8s-ui/k8s-ui/internal/crypto"
-	"github.com/k8s-ui/k8s-ui/internal/domain"
-	"github.com/k8s-ui/k8s-ui/internal/git"
-	"github.com/k8s-ui/k8s-ui/internal/store"
+	"github.com/orin/orin/internal/config"
+	"github.com/orin/orin/internal/crypto"
+	"github.com/orin/orin/internal/domain"
+	"github.com/orin/orin/internal/git"
+	"github.com/orin/orin/internal/store"
 )
 
 // Server renders manifests for an application, loading credentials from the

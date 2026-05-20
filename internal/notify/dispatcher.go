@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/k8s-ui/k8s-ui/internal/domain"
+	"github.com/orin/orin/internal/domain"
 )
 
 // Dispatcher sends notifications to configured webhooks.
@@ -100,7 +100,7 @@ func (d *Dispatcher) Test(ctx context.Context, url string) error {
 	body, _ := json.Marshal(Payload{
 		AppName:   "test",
 		Event:     "test",
-		Message:   "This is a test notification from k8s-ui",
+		Message:   "This is a test notification from orin",
 		Timestamp: time.Now().UTC().Format(time.RFC3339),
 	})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))

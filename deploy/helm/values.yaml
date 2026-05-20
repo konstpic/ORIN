@@ -1,6 +1,6 @@
 image:
-  # Build on the machine that runs the cluster: `make docker` → k8s-ui:<VERSION> (default dev).
-  repository: k8s-ui
+  # Build on the machine that runs the cluster: `make docker` → orin:<VERSION> (default dev).
+  repository: orin
   tag: dev
   pullPolicy: IfNotPresent
 
@@ -9,22 +9,25 @@ replicaCount: 1
 
 service:
   type: LoadBalancer
-  port: 8080
+  port: 80
   # When type is NodePort, set a fixed port (30000–32767) for local clusters.
   nodePort: null
 
 # Static admin token. Override via --set or values.yaml.
-adminToken: change-me
+adminToken: devtoken
 
 # 32-byte hex.
 encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
 
 # Postgres connection string.
-databaseUrl: postgres://k8sui:k8sui@k8s-ui-postgres:5432/k8sui?sslmode=disable
+databaseUrl: ""
 
 postgres:
   enabled: true
   storage: 1Gi
+  username: orin
+  password: orin
+  database: orin
 
 rbac:
   clusterAdmin: true # MVP
@@ -37,10 +40,10 @@ nodeSelector: {}
 tolerations: []
 
 # Optional Git-driven Application catalog (creates Application rows from a YAML file in Git).
-# repoUrl must match a Repository URL registered in k8s-ui exactly (same string as in the UI).
+# repoUrl must match a Repository URL registered in orin exactly (same string as in the UI).
 appsCatalog:
   enabled: false
   repoUrl: ""
-  path: k8s-ui/apps.yaml
+  path: orin/apps.yaml
   revision: HEAD
   interval: 5m

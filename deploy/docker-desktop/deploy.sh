@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Deploy k8s-ui to Docker Desktop Kubernetes (context docker-desktop).
+# Deploy orin to Docker Desktop Kubernetes (context docker-desktop).
 # Prerequisites: Docker Desktop with Kubernetes enabled, helm, kubectl.
 #
-# Default: build k8s-ui:local, push to ttl.sh (ephemeral public URL), Helm uses
+# Default: build orin:local, push to ttl.sh (ephemeral public URL), Helm uses
 #   imagePullPolicy: Always — works when Docker and Kubernetes use separate image
 #   stores (no "Use containerd for pulling…" option required).
 #
-# Optional: USE_LOCAL_IMAGE_NEVER=1 — use k8s-ui:local + Never (only if the image
+# Optional: USE_LOCAL_IMAGE_NEVER=1 — use orin:local + Never (only if the image
 #   is already visible to kubelet on the scheduled node).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-NS=k8s-ui
-RELEASE=k8s-ui
+NS=orin
+RELEASE=orin
 THIS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "==> Checking kubectl context (expect docker-desktop)"
@@ -36,24 +36,24 @@ if [[ "${NODES}" != "1" ]] && [[ "${ALLOW_MULTI_NODE:-}" != "1" ]] && [[ "${USE_
   exit 1
 fi
 
-echo "==> Building image k8s-ui:local"
-docker build --no-cache -t k8s-ui:local "${ROOT}"
+echo "==> Building image orin:local"
+docker build --no-cache -t orin:local "${ROOT}"
 
 HELM_EXTRA_SET=()
 HELM_EXTRA_FILES=(-f "${THIS_DIR}/values.yaml")
 
 if [[ "${USE_NEVER}" == "1" ]]; then
-  echo "==> Using local image k8s-ui:local (imagePullPolicy: Never)"
+  echo "==> Using local image orin:local (imagePullPolicy: Never)"
   HELM_EXTRA_FILES+=(-f "${THIS_DIR}/values.never-pull.yaml")
 else
   # ttl.sh: tag suffix is the TTL (e.g. 8h). Image is anonymously pullable over HTTPS.
   TTL_SUFFIX="${TTL_SH_TTL:-8h}"
   RAND="$(openssl rand -hex 10)"
-  TTL_IMAGE="ttl.sh/k8s-ui-${RAND}:${TTL_SUFFIX}"
+  TTL_IMAGE="ttl.sh/orin-${RAND}:${TTL_SUFFIX}"
   echo "==> Pushing to ${TTL_IMAGE} (ephemeral; dev-only, reachable from cluster over HTTPS)"
-  docker tag k8s-ui:local "${TTL_IMAGE}"
+  docker tag orin:local "${TTL_IMAGE}"
   docker push "${TTL_IMAGE}"
-  REPO="ttl.sh/k8s-ui-${RAND}"
+  REPO="ttl.sh/orin-${RAND}"
   HELM_EXTRA_SET+=(--set-string "image.repository=${REPO}" --set-string "image.tag=${TTL_SUFFIX}" --set-string "image.pullPolicy=Always")
 fi
 
@@ -69,15 +69,15 @@ if ! kubectl rollout status deployment/"${RELEASE}" -n "${NS}" --timeout=600s; t
   echo ""
   echo "=== Deployment rollout failed ==="
   kubectl get pods -n "${NS}" -o wide 2>/dev/null || true
-  kubectl describe pod -n "${NS}" -l app.kubernetes.io/name=k8s-ui 2>/dev/null | tail -40 || true
+  kubectl describe pod -n "${NS}" -l app.kubernetes.io/name=orin 2>/dev/null | tail -40 || true
   echo ""
   echo "If ImagePullBackOff: check outbound HTTPS (ttl.sh) or try again."
   echo "If you must use a purely local image on the node: USE_LOCAL_IMAGE_NEVER=1 $0"
-  echo "(only works when kubelet can already see k8s-ui:local.)"
+  echo "(only works when kubelet can already see orin:local.)"
   echo ""
   exit 1
 fi
-kubectl rollout status statefulset/k8s-ui-postgres -n "${NS}" --timeout=600s 2>/dev/null || true
+kubectl rollout status statefulset/orin-postgres -n "${NS}" --timeout=600s 2>/dev/null || true
 
 PF_PORT="${PF_PORT:-8080}"
 echo ""

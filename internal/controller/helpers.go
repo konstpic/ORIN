@@ -4,7 +4,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/k8s-ui/k8s-ui/internal/manifest"
+	"github.com/orin/orin/internal/manifest"
 )
 
 func trackingSelector(appName string) labels.Selector {
