@@ -1,0 +1,8 @@
+{{- if .Values.createNamespace | default true }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Release.Namespace }}
+  labels:
+    {{- include "hello-world.labels" . | nindent 4 }}
+{{- end }}

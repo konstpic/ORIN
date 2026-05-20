@@ -1,0 +1,77 @@
+{{- /*
+App-of-Apps: render orin.dev/v1alpha1 Application and AppProject objects
+for every Git-sourced entry in .Values.devApps.
+
+The ORIN controller scans rendered manifests after each reconcile and
+upserts these objects into the database.  They are NEVER applied to the
+destination cluster (the controller filters them out before apply).
+
+One AppProject + one Application is emitted per Git-sourced devApps entry.
+Inline entries (inline: true) are rendered as real workloads in workloads.yaml
+and do not produce child Application rows.
+*/}}
+{{- range $key, $cfg := .Values.devApps }}
+{{- $enabled := or (not (hasKey $cfg "enabled")) (eq $cfg.enabled true) }}
+{{- $isInline := eq ($cfg.inline | default false) true }}
+{{- if and $enabled (not $isInline) (hasKey $cfg "source") }}
+{{- $name   := $cfg.name | default $key }}
+{{- $dest   := $cfg.destination | default dict }}
+{{- $destNS := $dest.namespace | default $name }}
+{{- $destCluster := $dest.cluster | default ($.Values.cluster | default "in-cluster") }}
+{{- $src    := $cfg.source }}
+{{- $repoUrl := $src.repoUrl | default $src.repoURL | default $.Values.repoUrl }}
+
+{{- /* ── AppProject ───────────────────────────────────────────────────── */}}
+---
+apiVersion: orin.dev/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ $name }}
+spec:
+  description: {{ printf "Project for %s" $name | quote }}
+  sourceRepos:
+    - {{ $repoUrl | quote }}
+  destinations:
+    - name: {{ $destCluster | quote }}
+      namespace: {{ $destNS | quote }}
+
+{{- /* ── Application ─────────────────────────────────────────────────── */}}
+---
+apiVersion: orin.dev/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+spec:
+  project: {{ $name }}
+  source:
+    repoURL: {{ $repoUrl | quote }}
+    path: {{ $src.path | default "." | quote }}
+    targetRevision: {{ $src.targetRevision | default "HEAD" | quote }}
+  destination:
+    name: {{ $destCluster | quote }}
+    namespace: {{ $destNS | quote }}
+  {{- if or (hasKey $cfg "syncPolicy") (hasKey $cfg "ignoreDifferences") }}
+  syncPolicy:
+    {{- if hasKey $cfg "syncPolicy" }}
+    {{- with $cfg.syncPolicy }}
+    {{- if .automated }}
+    automated:
+      prune: {{ .automated.prune | default false }}
+      selfHeal: {{ .automated.selfHeal | default false }}
+    {{- end }}
+    {{- if .createNamespace }}
+    createNamespace: true
+    {{- end }}
+    {{- if .syncOptions }}
+    syncOptions:
+      {{- toYaml .syncOptions | nindent 6 }}
+    {{- end }}
+    {{- end }}
+    {{- end }}
+    {{- if hasKey $cfg "ignoreDifferences" }}
+    ignoreDifferences:
+      {{- toYaml $cfg.ignoreDifferences | nindent 6 }}
+    {{- end }}
+  {{- end }}
+{{- end }}
+{{- end }}

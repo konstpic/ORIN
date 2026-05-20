@@ -1,0 +1,60 @@
+# Optional cluster-wide default destination.
+cluster: in-cluster
+
+# Repository URL that hosts this demo (used by devApps defaults).
+repoUrl: https://github.com/konstpic/ORIN.git
+
+# ─────────────────────────────────────────────────────────────────────────────
+# devApps — single map. Each key is the canonical app id.
+#
+# Each Git-sourced entry produces:
+#   1. orin.dev/v1alpha1 AppProject (same name as the app)
+#   2. orin.dev/v1alpha1 Application (same name) bound to that project
+#
+# The controller materialises the AppProject and Application rows automatically
+# on every reconcile (app-of-apps pattern — no flag needed).
+#
+# Required when the entry IS a Git-sourced Application:
+#   source.repoUrl
+#   source.path             (default ".")
+#   source.targetRevision   (default "HEAD")
+#   destination.namespace
+#   destination.cluster     (default top-level .cluster, or "in-cluster")
+#
+# Inline workloads:
+#   set inline: true and optionally a namespace.
+#   These render a Namespace in this chart directly.
+#   Inline entries do NOT produce AppProject or Application child objects.
+#
+# Optional per-entry overrides (git-sourced):
+#   syncPolicy:           same shape as ORIN /api/v1/applications body
+#   ignoreDifferences:    list of {group,kind,name?,namespace?,jsonPointers[]}
+# ─────────────────────────────────────────────────────────────────────────────
+devApps:
+
+  # ── Git-sourced applications ─────────────────────────────────────────────
+  web:
+    source:
+      repoUrl: https://github.com/konstpic/ORIN.git
+      path: examples/gitops-demo/kubernetes
+      targetRevision: main
+    destination:
+      namespace: gitops-demo
+    syncPolicy:
+      automated:
+        prune: false  
+        selfHeal: false
+      createNamespace: true
+
+  hello-world:
+    source:
+      repoUrl: https://github.com/konstpic/ORIN.git
+      path: examples/gitops-demo/samples/hello-world
+      targetRevision: main
+    destination:
+      namespace: hello-world
+    syncPolicy:
+      automated:
+        prune: false
+        selfHeal: false
+      createNamespace: true

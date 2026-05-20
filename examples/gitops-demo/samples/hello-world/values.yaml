@@ -1,0 +1,16 @@
+replicaCount: 3
+
+image:
+  repository: hashicorp/http-echo
+  tag: "0.2.3"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5678
+
+message: "Hello World"
+
+# When true (default), render Namespace for the release namespace (ORIN uses Application destination as helm --namespace).
+createNamespace: true
