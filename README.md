@@ -1,6 +1,6 @@
 # ORIN — GitOps Navigation System for Kubernetes
 
-`ORIN` is an ArgoCD-inspired GitOps platform written in Go (backend) and
+`ORIN` is a GitOps platform written in Go (backend) and
 React + TypeScript (frontend). Each *Application* declares a Git source (repo +
 path + revision) and a destination (cluster + namespace). The system
 continuously reconciles desired state (Git) with actual state (Kubernetes) and
@@ -56,9 +56,9 @@ disable that dependency in the umbrella `values.yaml` or override it with
 
 **Examples:** a repo may expose plain manifests under `kubernetes/` and a leaf
 chart under `samples/hello-world/` — register two applications with paths
-`kubernetes` and `samples/hello-world` respectively. An Argo-style *umbrella*
+`kubernetes` and `samples/hello-world` respectively. An *umbrella*
 that only emits `Application` / `AppProject` CRDs (some layouts under
-`deploy/.helm`) is meant for Argo CD; if your umbrella instead renders real
+`deploy/.helm`) may be meant for a different control plane; if your umbrella instead renders real
 workloads, orin will apply all of them from that one Application.
 
 The release image installs the `helm` binary; for local `all-in-one`, install
@@ -188,9 +188,8 @@ spec:
       namespace: "team-a-*"
 ```
 
-**Argo CD compat:** `argoproj.io/v1alpha1` `Application` and `AppProject`
-manifests are recognised and produce the same result — useful for incremental
-migration from Argo CD.
+`argoproj.io/v1alpha1` `Application` and `AppProject` manifests are recognised
+and produce the same result — useful when importing existing GitOps layouts.
 
 Control-plane objects (`orin.dev/*` and `argoproj.io` Application/AppProject)
 are **never applied** to the destination cluster. Every `source.repoURL`
@@ -199,9 +198,9 @@ upserted before Applications.
 
 This is orthogonal to **`APPS_CATALOG_*`** (global file poll): app-of-apps
 materialization is driven by whatever the **parent chart** renders each reconcile.
-### Argo-style sync options (subset)
+### Sync options compatibility (subset)
 
-- **`syncPolicy.syncOptions`**: list of strings, Argo-compatible. **`CreateNamespace=true`**
+- **`syncPolicy.syncOptions`**: list of strings. **`CreateNamespace=true`**
   is honored the same way as **`syncPolicy.createNamespace`: `true`** (either
   or both may be set).
 - **`syncPolicy.managedNamespaceMetadata`**: `labels` / `annotations` merged into
@@ -249,17 +248,10 @@ docs/design.md      # full technical design (mirrors plan)
 test/e2e/           # kind-based end-to-end smoke test
 ```
 
-## Migrating from Argo CD
-
-See [`docs/argo-migration.md`](docs/argo-migration.md) for a full compatibility
-matrix, a step-by-step import workflow (`POST /api/v1/argo-import`), and guides
-for migrating `ignoreDifferences`, `AppProject` policies, and `ApplicationSet`.
-
 ## Documentation
 
 * [`docs/design.md`](docs/design.md) – full architecture, GitOps flow, K8s
   interaction model.
-* [`docs/argo-migration.md`](docs/argo-migration.md) – Argo CD compatibility matrix and migration guide.
 * [`docs/api.md`](docs/api.md) – REST + WebSocket reference.
 * [`docs/development.md`](docs/development.md) – local dev workflow.
 

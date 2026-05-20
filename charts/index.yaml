@@ -3,12 +3,12 @@ entries:
   orin:
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-05-20T14:54:19.647055+03:00"
+    created: "2026-05-20T15:04:04.745277+03:00"
     description: GitOps dashboard for Kubernetes
-    digest: 1aa9ef2f747ee006ccc760be9c8363974b84a409af87feb57e79b9321d38d663
+    digest: 990b9da62f926766382dedf86e0a7579785d6e99f45a974c09f32ce36a50a26a
     name: orin
     type: application
     urls:
     - orin-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-20T14:54:19.646372+03:00"
+generated: "2026-05-20T15:04:04.744345+03:00"

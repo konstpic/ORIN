@@ -1,7 +1,6 @@
 image:
-  # Build on the machine that runs the cluster: `make docker` → orin:<VERSION> (default dev).
-  repository: orin
-  tag: dev
+  repository: ghcr.io/konstpic/orin
+  tag: latest
   pullPolicy: IfNotPresent
 
 # Single-replica MVP. Scale once leader election lands.
