@@ -206,7 +206,7 @@ materialization is driven by whatever the **parent chart** renders each reconcil
 - **`syncPolicy.managedNamespaceMetadata`**: `labels` / `annotations` merged into
   the `Namespace` object when namespace creation runs.
 - **`syncPolicy.createNamespace`**: shortcut bool (same effect as the sync option above).
-- **`syncPolicy.automated`**: unchanged (prune / selfHeal). Not yet implemented from Argo:
+- **`syncPolicy.automated`**: unchanged (prune / selfHeal). Not yet implemented:
   retry, resource hooks, server-side apply as first-class options, etc.
 
 You can also drive creation from CI with **`POST /api/v1/application-batches`**:
