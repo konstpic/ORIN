@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Extract version
         id: ver
@@ -35,7 +37,18 @@ jobs:
       - name: Package chart
         run: |
           helm package deploy/helm --destination dist/
-          ls -la dist/
+          helm package deploy/helm --destination charts/
+          helm repo index charts/
+          ls -la dist/ charts/
+
+      - name: Commit charts/ index to main
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          branch: main
+          file_pattern: charts/**
+          commit_message: "chore(charts): publish orin ${{ steps.ver.outputs.version }}"
+          commit_user_name: github-actions[bot]
+          commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
 
       - name: Login to GHCR (Helm OCI)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin

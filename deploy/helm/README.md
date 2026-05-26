@@ -46,7 +46,14 @@ helm upgrade --install orin oci://ghcr.io/konstpic/charts/orin \
 
 ```bash
 make helm-package
-# dist/orin-0.2.0.tgz
+# charts/orin-0.2.0.tgz + charts/index.yaml
+```
+
+## Install from Git `charts/` repo
+
+```bash
+helm repo add orin https://konstpic.github.io/ORIN/charts/  # or raw Git path
+helm upgrade --install orin orin/orin --version 0.2.0 -n orin --create-namespace
 ```
 
 Docker Desktop: [`../docker-desktop/deploy.sh`](../docker-desktop/deploy.sh).

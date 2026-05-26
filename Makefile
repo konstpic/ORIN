@@ -36,8 +36,8 @@ helm-lint:
 	helm lint deploy/helm
 
 helm-package: helm-lint
-	mkdir -p dist
-	helm package deploy/helm --destination dist/
+	helm package deploy/helm --destination charts/
+	helm repo index charts/
 
 test:
 	go test ./... -race -count=1

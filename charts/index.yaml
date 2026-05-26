@@ -2,8 +2,35 @@ apiVersion: v1
 entries:
   orin:
   - apiVersion: v2
+    appVersion: 0.2.0
+    created: "2026-05-26T13:55:59.088953+03:00"
+    dependencies:
+    - name: common
+      repository: ""
+      version: 0.1.0
+    - name: postgres
+      repository: ""
+      version: 0.1.0
+    - name: reposerver
+      repository: ""
+      version: 0.1.0
+    - name: controller
+      repository: ""
+      version: 0.1.0
+    - name: apiserver
+      repository: ""
+      version: 0.1.0
+    description: GitOps dashboard for Kubernetes (scaled apiserver + controller +
+      reposerver)
+    digest: 1313536a162b2b4ccda8f4ce5bd6305079b423e046f768f9858062cd01b94206
+    name: orin
+    type: application
+    urls:
+    - orin-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-05-20T15:04:04.745277+03:00"
+    created: "2026-05-26T13:55:59.088476+03:00"
     description: GitOps dashboard for Kubernetes
     digest: 990b9da62f926766382dedf86e0a7579785d6e99f45a974c09f32ce36a50a26a
     name: orin
@@ -11,4 +38,4 @@ entries:
     urls:
     - orin-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-20T15:04:04.744345+03:00"
+generated: "2026-05-26T13:55:59.087647+03:00"
