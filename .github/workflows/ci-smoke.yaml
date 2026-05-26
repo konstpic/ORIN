@@ -1,0 +1,15 @@
+# Minimal workflow to verify GitHub Actions is running for this repo.
+name: CI smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "GitHub Actions is enabled for ${{ github.repository }}"
