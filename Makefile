@@ -32,6 +32,15 @@ docker-scaled:
 	docker build --target controller -t orin-controller:$(VERSION) -f Dockerfile .
 	docker build --target reposerver -t orin-reposerver:$(VERSION) -f Dockerfile .
 
+DOCKERHUB_USER ?= konstpic
+docker-push-hub: docker-scaled
+	docker tag orin-apiserver:$(VERSION) $(DOCKERHUB_USER)/orin-apiserver:$(VERSION)
+	docker tag orin-controller:$(VERSION) $(DOCKERHUB_USER)/orin-controller:$(VERSION)
+	docker tag orin-reposerver:$(VERSION) $(DOCKERHUB_USER)/orin-reposerver:$(VERSION)
+	docker push $(DOCKERHUB_USER)/orin-apiserver:$(VERSION)
+	docker push $(DOCKERHUB_USER)/orin-controller:$(VERSION)
+	docker push $(DOCKERHUB_USER)/orin-reposerver:$(VERSION)
+
 helm-lint:
 	helm lint deploy/helm
 

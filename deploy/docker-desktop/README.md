@@ -21,6 +21,16 @@ Override TTL tag (must be a ttl.sh duration, e.g. `24h`, `1h`):
 TTL_SH_TTL=24h ./deploy/docker-desktop/deploy.sh
 ```
 
+**Docker Hub (recommended when GitHub Actions is unavailable):** build, push,
+and deploy from your Hub account (log in via Docker Desktop first):
+
+```bash
+USE_DOCKERHUB=1 DOCKERHUB_USER=konstpic DOCKERHUB_TAG=0.2.2 ./deploy/docker-desktop/deploy.sh
+```
+
+Images: `konstpic/orin-apiserver`, `orin-controller`, `orin-reposerver` (public
+repos pull without a secret; private repos need `DOCKERHUB_TOKEN`).
+
 **Optional (advanced):** if your kubelet can already see `orin:local` on the
 node where the pod runs:
 

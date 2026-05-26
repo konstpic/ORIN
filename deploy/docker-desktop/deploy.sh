@@ -5,7 +5,10 @@
 # Builds three component images (apiserver, controller, reposerver). Default:
 #   push each to ttl.sh (ephemeral public URL), Helm uses imagePullPolicy: Always.
 #
-# Optional: USE_LOCAL_IMAGE_NEVER=1 — orin-{component}:local + Never (only if
+# Optional:
+#   USE_DOCKERHUB=1 — build, push to Docker Hub, deploy (DOCKERHUB_USER, DOCKERHUB_TAG)
+#   USE_GHCR=1      — pull from ghcr.io (private; needs GHCR_TOKEN)
+#   USE_LOCAL_IMAGE_NEVER=1 — orin-{component}:local + Never (only if
 #   images are already visible to kubelet on the scheduled node).
 set -euo pipefail
 
@@ -39,7 +42,41 @@ COMPONENTS=(apiserver controller reposerver)
 HELM_EXTRA_SET=()
 HELM_EXTRA_FILES=(-f "${THIS_DIR}/values.yaml")
 
-if [[ "${USE_GHCR:-0}" == "1" ]]; then
+if [[ "${USE_DOCKERHUB:-0}" == "1" ]]; then
+  DOCKERHUB_USER="${DOCKERHUB_USER:-konstpic}"
+  CHART_TAG="${DOCKERHUB_TAG:-0.2.2}"
+  echo "==> Build and push to Docker Hub (${DOCKERHUB_USER}/orin-*:${CHART_TAG})"
+  HELM_EXTRA_FILES+=(-f "${THIS_DIR}/values.dockerhub.yaml")
+  HELM_EXTRA_SET+=(--set-string "global.image.tag=${CHART_TAG}")
+  HELM_EXTRA_SET+=(--set-string "global.images.apiserver.repository=${DOCKERHUB_USER}/orin-apiserver")
+  HELM_EXTRA_SET+=(--set-string "global.images.controller.repository=${DOCKERHUB_USER}/orin-controller")
+  HELM_EXTRA_SET+=(--set-string "global.images.reposerver.repository=${DOCKERHUB_USER}/orin-reposerver")
+
+  if ! docker info >/dev/null 2>&1; then
+    echo "Error: docker is not running. Start Docker Desktop and log in to Docker Hub."
+    exit 1
+  fi
+
+  for c in "${COMPONENTS[@]}"; do
+    HUB_IMAGE="${DOCKERHUB_USER}/orin-${c}:${CHART_TAG}"
+    echo "==> Building ${HUB_IMAGE} (target ${c})"
+    docker build --target "${c}" --build-arg "VERSION=${CHART_TAG}" -t "${HUB_IMAGE}" "${ROOT}"
+    echo "==> Pushing ${HUB_IMAGE}"
+    docker push "${HUB_IMAGE}"
+  done
+
+  if [[ "${DOCKERHUB_SKIP_SECRET:-0}" != "1" ]] && [[ -n "${DOCKERHUB_TOKEN:-}" ]]; then
+    kubectl create namespace "${NS}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    kubectl create secret docker-registry dockerhub-credentials \
+      --namespace "${NS}" \
+      --docker-server=https://index.docker.io/v1/ \
+      --docker-username="${DOCKERHUB_USER}" \
+      --docker-password="${DOCKERHUB_TOKEN}" \
+      --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+    HELM_EXTRA_SET+=(--set-json 'global.imagePullSecrets=[{"name":"dockerhub-credentials"}]')
+    echo "==> dockerhub-credentials secret updated"
+  fi
+elif [[ "${USE_GHCR:-0}" == "1" ]]; then
   CHART_TAG="${GHCR_TAG:-0.2.2}"
   echo "==> Deploy from GHCR (tag ${CHART_TAG})"
   HELM_EXTRA_FILES+=(-f "${THIS_DIR}/values.ghcr.yaml")
@@ -129,10 +166,13 @@ echo "Then open: http://127.0.0.1:${PF_PORT}/"
 echo ""
 echo "Sign in with token: devtoken"
 echo ""
-if [[ "${USE_GHCR:-0}" == "1" ]]; then
+if [[ "${USE_DOCKERHUB:-0}" == "1" ]]; then
+  echo "Images: ${DOCKERHUB_USER:-konstpic}/orin-{apiserver,controller,reposerver}:${DOCKERHUB_TAG:-0.2.2}"
+elif [[ "${USE_GHCR:-0}" == "1" ]]; then
   echo "Images: ghcr.io/konstpic/orin-{apiserver,controller,reposerver}:${GHCR_TAG:-0.2.2}"
 elif [[ "${USE_NEVER}" != "1" ]]; then
   echo "Note: component images were pushed to ttl.sh (public URLs, TTL ${TTL_SUFFIX:-8h})."
   echo "      For offline / no-registry: set USE_LOCAL_IMAGE_NEVER=1 (advanced)."
-  echo "      For release images: USE_GHCR=1 $0"
+  echo "      For Docker Hub: USE_DOCKERHUB=1 $0"
+  echo "      For GHCR: USE_GHCR=1 $0"
 fi
