@@ -271,14 +271,15 @@ applications:
       namespace: myapp
 ```
 
-Enable catalog sync in `deploy/helm/values.yaml`:
+Enable catalog sync in `deploy/helm/values.yaml` (`controller.appsCatalog`):
 
 ```yaml
-appsCatalog:
-  enabled: true
-  repoUrl: https://github.com/org/gitops.git
-  path: orin/apps.yaml
-  revision: HEAD
+controller:
+  appsCatalog:
+    enabled: true
+    repoUrl: https://github.com/org/gitops.git
+    path: orin/apps.yaml
+    revision: HEAD
 ```
 
 The controller polls this file every 5 minutes (configurable) and creates or

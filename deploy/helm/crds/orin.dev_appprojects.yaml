@@ -1,0 +1,78 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: appprojects.orin.dev
+spec:
+  group: orin.dev
+  names:
+    kind: AppProject
+    listKind: AppProjectList
+    plural: appprojects
+    singular: appproject
+    shortNames:
+      - orinproj
+      - oproj
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: AppProject defines tenancy and policy constraints for ORIN applications.
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              properties:
+                description:
+                  type: string
+                sourceRepos:
+                  type: array
+                  items:
+                    type: string
+                destinations:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      server:
+                        type: string
+                      name:
+                        type: string
+                      namespace:
+                        type: string
+                clusterResourceWhitelist:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+                namespaceResourceBlacklist:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      group:
+                        type: string
+                      kind:
+                        type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: Description
+          type: string
+          jsonPath: .spec.description
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

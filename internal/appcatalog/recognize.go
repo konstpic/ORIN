@@ -18,7 +18,8 @@ const (
 // must never be applied to the destination Kubernetes cluster.
 func isControlPlaneGroup(apiVersion string) bool {
 	av := strings.ToLower(apiVersion)
-	return strings.HasPrefix(av, "orin.io") || strings.Contains(av, "argoproj.io")
+	return strings.HasPrefix(av, "orin.") || strings.HasPrefix(av, "k8s-ui.io") ||
+		strings.Contains(av, "argoproj.io")
 }
 
 // IsControlPlaneObject reports whether an unstructured object belongs to a
@@ -51,15 +52,15 @@ func TryEntryFromObject(
 		return
 	}
 	av := strings.ToLower(u.GetAPIVersion())
-	isKuiGroup := strings.HasPrefix(av, "orin.io")
+	isOrinGroup := strings.HasPrefix(av, "orin.") || strings.HasPrefix(av, "k8s-ui.io")
 	isArgoGroup := strings.Contains(av, "argoproj.io")
-	if !isKuiGroup && !isArgoGroup {
+	if !isOrinGroup && !isArgoGroup {
 		return
 	}
 
 	switch u.GetKind() {
 	case "Application":
-		e, eOk, eErr := tryApplicationEntry(u, resolve, isKuiGroup)
+		e, eOk, eErr := tryApplicationEntry(u, resolve, isOrinGroup)
 		return e, ProjectEntry{}, EntryKindApplication, eOk, eErr
 	case "AppProject":
 		pe, peOk, peErr := tryAppProjectEntry(u)
@@ -68,15 +69,13 @@ func TryEntryFromObject(
 	return
 }
 
-// tryApplicationEntry parses an Application object from either the orin.io
-// or argoproj.io group.  The orin.io spec uses spec.source.repoUrl (camelCase)
-// while argoproj.io uses spec.source.repoURL.  The existing TryArgoApplicationEntry
-// helper handles both cases via firstString, so we reuse it for both groups.
-func tryApplicationEntry(u *unstructured.Unstructured, resolve ArgoDestinationResolve, isKuiGroup bool) (Entry, bool, error) {
-	// For orin.io/Application the spec shape is identical to argoproj.io/Application
-	// (same source/destination/syncPolicy layout).  We temporarily rewrite the
-	// apiVersion so TryArgoApplicationEntry recognises it, then restore.
-	if isKuiGroup {
+// tryApplicationEntry parses an Application object from either an ORIN API group
+// (orin.dev, orin.io, k8s-ui.io) or argoproj.io.  ORIN specs accept repoUrl or
+// repoURL; TryArgoApplicationEntry handles both via firstString.
+func tryApplicationEntry(u *unstructured.Unstructured, resolve ArgoDestinationResolve, isOrinGroup bool) (Entry, bool, error) {
+	// ORIN Application spec matches argoproj.io layout. Rewrite apiVersion so
+	// TryArgoApplicationEntry recognises it, then restore.
+	if isOrinGroup {
 		orig := u.GetAPIVersion()
 		u.SetAPIVersion("argoproj.io/v1alpha1")
 		e, ok, err := TryArgoApplicationEntry(u, resolve)

@@ -288,7 +288,8 @@ func ParseCatalogYAML(data []byte, resolve ArgoDestinationResolve) (apps []Entry
 		}
 		u := &unstructured.Unstructured{Object: raw}
 		av := strings.ToLower(u.GetAPIVersion())
-		isTyped := strings.HasPrefix(av, "orin.io") || strings.Contains(av, "argoproj.io")
+		isTyped := strings.HasPrefix(av, "orin.") || strings.HasPrefix(av, "k8s-ui.io") ||
+			strings.Contains(av, "argoproj.io")
 		if isTyped {
 			appEntry, projEntry, kind, ok, tryErr := TryEntryFromObject(u, resolve)
 			if tryErr != nil || !ok {
@@ -313,7 +314,7 @@ func ParseCatalogYAML(data []byte, resolve ArgoDestinationResolve) (apps []Entry
 		}
 		if len(legacyDoc.Applications) > 0 || len(legacyDoc.Projects) > 0 {
 			slog.Warn("appcatalog: legacy 'applications:'/'projects:' list format is deprecated; " +
-				"migrate to orin.io/v1alpha1 Application and AppProject objects")
+				"migrate to orin.dev/v1alpha1 Application and AppProject objects")
 			apps = append(apps, legacyDoc.Applications...)
 			projects = append(projects, legacyDoc.Projects...)
 		}

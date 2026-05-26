@@ -1,4 +1,6 @@
-// Command orin is the single-binary entry point. Subcommands:
+// Command orin is the dev/MVP entry point (all-in-one + migrate). Production
+// scaled deploys use dedicated binaries: orin-apiserver, orin-controller,
+// orin-reposerver. Subcommands:
 //
 //	apiserver    HTTP + WebSocket gateway
 //	controller   reconciliation loop

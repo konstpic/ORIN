@@ -1,0 +1,65 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "apiserver.fullname" . }}
+  labels: {{- include "apiserver.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "apiserver.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "apiserver.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "apiserver.serviceAccountName" . }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.global.postgres.enabled }}
+      initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command:
+            - sh
+            - -c
+            - until pg_isready -h {{ .Release.Name }}-postgres -p 5432 -U {{ .Values.global.postgres.username | quote }}; do echo waiting for postgres; sleep 2; done
+      {{- end }}
+      containers:
+        - name: apiserver
+          image: {{ include "apiserver.image" . | quote }}
+          imagePullPolicy: {{ include "apiserver.imagePullPolicy" . }}
+          ports: [{ containerPort: 8080, name: http }]
+          envFrom:
+            - secretRef: { name: {{ include "apiserver.secretName" . }} }
+          env:
+            - { name: IN_CLUSTER, value: "true" }
+            - { name: WEB_ASSETS_DIR, value: /app/web }
+            - { name: REPO_SERVER_ADDR, value: {{ include "apiserver.reposerverAddr" . | quote }} }
+            - { name: REPO_CACHE_DIR, value: /tmp/orin-repos }
+          readinessProbe: { httpGet: { path: /readyz, port: 8080 }, initialDelaySeconds: 5 }
+          livenessProbe:  { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 10 }
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "apiserver.fullname" . }}
+  labels: {{- include "apiserver.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ include "apiserver.fullname" . }}
+  ports:
+    - name: http
+      port: {{ .Values.service.port }}
+      targetPort: 8080
+      {{- if and (eq .Values.service.type "NodePort") .Values.service.nodePort }}
+      nodePort: {{ .Values.service.nodePort }}
+      {{- end }}

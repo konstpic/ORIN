@@ -5,7 +5,7 @@ PKG := github.com/orin/orin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X $(PKG)/internal/config.Version=$(VERSION)
 
-.PHONY: all build test lint tidy fmt vet clean docker frontend frontend-build run-all-in-one migrate-up migrate-down
+.PHONY: all build test lint tidy fmt vet clean docker docker-scaled helm-lint helm-package frontend frontend-build run-all-in-one migrate-up migrate-down
 
 all: build
 
@@ -15,17 +15,29 @@ $(BIN_DIR):
 build: $(BIN_DIR)
 	go build -ldflags "$(LDFLAGS)" -o $(BINARY) ./cmd/orin
 
-# Build separate binaries for scaled deployment
+# Component binaries + images for scaled deployment
 build-all: build build-apiserver build-controller build-reposerver
 
 build-apiserver: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-apiserver ./cmd/orin
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-apiserver ./cmd/orin-apiserver
 
 build-controller: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-controller ./cmd/orin
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-controller ./cmd/orin-controller
 
 build-reposerver: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-reposerver ./cmd/orin
+	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/orin-reposerver ./cmd/orin-reposerver
+
+docker-scaled:
+	docker build --target apiserver -t orin-apiserver:$(VERSION) -f Dockerfile .
+	docker build --target controller -t orin-controller:$(VERSION) -f Dockerfile .
+	docker build --target reposerver -t orin-reposerver:$(VERSION) -f Dockerfile .
+
+helm-lint:
+	helm lint deploy/helm
+
+helm-package: helm-lint
+	mkdir -p dist
+	helm package deploy/helm --destination dist/
 
 test:
 	go test ./... -race -count=1
@@ -48,7 +60,7 @@ clean:
 	rm -rf $(BIN_DIR)
 
 docker:
-	docker build -t orin:$(VERSION) -t orin:dev -f Dockerfile .
+	docker build --target all-in-one -t orin:$(VERSION) -t orin:dev -f Dockerfile .
 
 frontend:
 	cd web && npm install && npm run dev

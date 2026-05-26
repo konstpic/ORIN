@@ -19,13 +19,7 @@ func NewAPIServerCmd(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "apiserver",
 		Short: "Run the API server",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			return runtime.RunAPIServer(ctx, cfg)
-		},
+		RunE: func(*cobra.Command, []string) error { return RunAPIServer(ctx) },
 	}
 }
 
@@ -34,13 +28,7 @@ func NewControllerCmd(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "controller",
 		Short: "Run the application controller (reconciler)",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			return runtime.RunController(ctx, cfg)
-		},
+		RunE: func(*cobra.Command, []string) error { return RunController(ctx) },
 	}
 }
 
@@ -49,13 +37,7 @@ func NewRepoServerCmd(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "reposerver",
 		Short: "Run the repo server (standalone HTTP, MVP usually in-process)",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			return runtime.RunRepoServer(ctx, cfg)
-		},
+		RunE: func(*cobra.Command, []string) error { return RunRepoServer(ctx) },
 	}
 }
 
@@ -65,13 +47,7 @@ func NewAllInOneCmd(ctx context.Context) *cobra.Command {
 	return &cobra.Command{
 		Use:   "all-in-one",
 		Short: "Run apiserver, controller, and reposerver in one process",
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-			return runtime.RunAllInOne(ctx, cfg)
-		},
+		RunE: func(*cobra.Command, []string) error { return RunAllInOne(ctx) },
 	}
 }
 

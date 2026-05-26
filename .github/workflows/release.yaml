@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  CHART_OCI: oci://ghcr.io/konstpic/charts
+
+jobs:
+  helm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: ver
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set chart appVersion
+        run: |
+          sed -i 's/^appVersion:.*/appVersion: "${{ steps.ver.outputs.version }}"/' deploy/helm/Chart.yaml
+          sed -i 's/^version:.*/version: ${{ steps.ver.outputs.version }}/' deploy/helm/Chart.yaml
+
+      - uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: helm lint deploy/helm
+
+      - name: Package chart
+        run: |
+          helm package deploy/helm --destination dist/
+          ls -la dist/
+
+      - name: Login to GHCR (Helm OCI)
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Push chart to OCI
+        run: helm push dist/orin-${{ steps.ver.outputs.version }}.tgz ${{ env.CHART_OCI }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: dist/orin-${{ steps.ver.outputs.version }}.tgz

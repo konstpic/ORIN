@@ -39,9 +39,8 @@ func RunAPIServer(ctx context.Context, cfg *config.Config) error {
 	}
 	defer deps.Close()
 
-	// Seed RBAC roles/users on every startup (idempotent)
-	if err := seedRBACRoles(ctx, deps, cfg); err != nil {
-		slog.Warn("RBAC seed failed", "error", err)
+	if err := ensureBootstrap(ctx, deps, cfg); err != nil {
+		return err
 	}
 
 	return runHTTPServer(ctx, cfg, deps)
@@ -103,11 +102,6 @@ func RunAllInOne(ctx context.Context, cfg *config.Config) error {
 		return err
 	}
 
-	// Seed RBAC roles/users on every startup (idempotent)
-	if err := seedRBACRoles(ctx, deps, cfg); err != nil {
-		slog.Warn("RBAC seed failed", "error", err)
-	}
-
 	g, gctx := errgroup.WithContext(ctx)
 	g.Go(func() error { return deps.Controller.Run(gctx) })
 	g.Go(func() error { return runHTTPServer(gctx, cfg, deps) })
@@ -142,6 +136,9 @@ type deps struct {
 }
 
 func (d *deps) Close() {
+	if d.Repo != nil {
+		_ = d.Repo.Close()
+	}
 	if d.Cluster != nil {
 		d.Cluster.Close()
 	}
@@ -171,7 +168,7 @@ func buildDeps(ctx context.Context, cfg *config.Config) (*deps, error) {
 		return nil, fmt.Errorf("init cluster manager: %w", err)
 	}
 
-	rs, err := reposerver.New(cfg, st, cipher)
+	rs, err := reposerver.New(ctx, cfg, st, cipher)
 	if err != nil {
 		cm.Close()
 		st.Close()

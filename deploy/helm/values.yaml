@@ -1,48 +1,63 @@
-image:
-  repository: ghcr.io/konstpic/orin
-  tag: latest
-  pullPolicy: IfNotPresent
+# Umbrella chart for scaled ORIN (subcharts under charts/).
+# Images are published to GHCR on tag push (see .github/workflows/ghcr.yaml).
 
-# Single-replica MVP. Scale once leader election lands.
-replicaCount: 1
+global:
+  image:
+    tag: latest
+    pullPolicy: IfNotPresent
 
-service:
-  type: LoadBalancer
-  port: 80
-  # When type is NodePort, set a fixed port (30000–32767) for local clusters.
-  nodePort: null
+  images:
+    apiserver:
+      repository: ghcr.io/konstpic/orin-apiserver
+    controller:
+      repository: ghcr.io/konstpic/orin-controller
+    reposerver:
+      repository: ghcr.io/konstpic/orin-reposerver
 
-# Static admin token. Override via --set or values.yaml.
-adminToken: devtoken
+  adminToken: devtoken
+  encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  databaseUrl: ""
 
-# 32-byte hex.
-encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  postgres:
+    enabled: true
+    username: orin
+    password: orin
+    database: orin
 
-# Postgres connection string.
-databaseUrl: ""
+  serviceAccount:
+    name: ""
+
+  rbac:
+    clusterAdmin: true
+
+  nodeSelector: {}
+  tolerations: []
 
 postgres:
-  enabled: true
   storage: 1Gi
-  username: orin
-  password: orin
-  database: orin
 
-rbac:
-  clusterAdmin: true # MVP
+apiserver:
+  replicaCount: 2
+  service:
+    type: LoadBalancer
+    port: 80
+    nodePort: null
+  resources: {}
 
-resources: {}
+controller:
+  replicaCount: 2
+  resources: {}
+  appsCatalog:
+    enabled: false
+    repoUrl: ""
+    path: orin/apps.yaml
+    revision: HEAD
+    interval: 5m
 
-# Optional: pin pods to a node (useful on Docker Desktop multi-node when the
-# app image is built on the host and only the control-plane node sees the new tag).
-nodeSelector: {}
-tolerations: []
-
-# Optional Git-driven Application catalog (creates Application rows from a YAML file in Git).
-# repoUrl must match a Repository URL registered in orin exactly (same string as in the UI).
-appsCatalog:
-  enabled: false
-  repoUrl: ""
-  path: orin/apps.yaml
-  revision: HEAD
-  interval: 5m
+reposerver:
+  replicaCount: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70

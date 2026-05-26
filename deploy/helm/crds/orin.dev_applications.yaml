@@ -1,0 +1,146 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: applications.orin.dev
+spec:
+  group: orin.dev
+  names:
+    kind: Application
+    listKind: ApplicationList
+    plural: applications
+    singular: application
+    shortNames:
+      - orinapp
+      - oapp
+  scope: Namespaced
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: Application declares a GitOps application managed by ORIN.
+          properties:
+            apiVersion:
+              type: string
+            kind:
+              type: string
+            metadata:
+              type: object
+            spec:
+              type: object
+              required:
+                - source
+                - destination
+              properties:
+                project:
+                  type: string
+                  description: AppProject name (defaults to default).
+                source:
+                  type: object
+                  required:
+                    - repoURL
+                  properties:
+                    repoURL:
+                      type: string
+                    repoUrl:
+                      type: string
+                      description: Alias for repoURL.
+                    path:
+                      type: string
+                      default: "."
+                    targetRevision:
+                      type: string
+                      default: HEAD
+                    helm:
+                      type: object
+                      properties:
+                        valueFiles:
+                          type: array
+                          items:
+                            type: string
+                    helmValues:
+                      type: object
+                      x-kubernetes-preserve-unknown-fields: true
+                destination:
+                  type: object
+                  required:
+                    - namespace
+                  properties:
+                    name:
+                      type: string
+                      description: Registered ORIN cluster name.
+                    server:
+                      type: string
+                      description: Kubernetes API server URL (Argo-compatible).
+                    namespace:
+                      type: string
+                syncPolicy:
+                  type: object
+                  properties:
+                    automated:
+                      type: object
+                      properties:
+                        prune:
+                          type: boolean
+                        selfHeal:
+                          type: boolean
+                        enabled:
+                          type: boolean
+                    createNamespace:
+                      type: boolean
+                    syncOptions:
+                      type: array
+                      items:
+                        type: string
+                    managedNamespaceMetadata:
+                      type: object
+                      properties:
+                        labels:
+                          type: object
+                          additionalProperties:
+                            type: string
+                        annotations:
+                          type: object
+                          additionalProperties:
+                            type: string
+                    ignoreDifferences:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          group:
+                            type: string
+                          kind:
+                            type: string
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                          jsonPointers:
+                            type: array
+                            items:
+                              type: string
+            status:
+              type: object
+              x-kubernetes-preserve-unknown-fields: true
+      additionalPrinterColumns:
+        - name: Project
+          type: string
+          jsonPath: .spec.project
+        - name: Repo
+          type: string
+          jsonPath: .spec.source.repoURL
+        - name: Path
+          type: string
+          jsonPath: .spec.source.path
+        - name: Cluster
+          type: string
+          jsonPath: .spec.destination.name
+        - name: Namespace
+          type: string
+          jsonPath: .spec.destination.namespace
+        - name: Age
+          type: date
+          jsonPath: .metadata.creationTimestamp

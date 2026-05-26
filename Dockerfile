@@ -1,11 +1,14 @@
-# Multi-stage build that produces a single image carrying the Go binary +
-# pre-built frontend assets. The binary supports multiple subcommands:
-#   all-in-one  — apiserver + controller + reposerver (default)
-#   apiserver   — stateless HTTP + WebSocket gateway (scale to N replicas)
-#   controller  — reconciliation loop with leader election (1 active)
-#   reposerver  — gRPC manifest renderer (HPA, scale to N replicas)
+# Multi-target image build. One Go module, component-specific binaries and runtime layers:
+#   apiserver   — HTTP + Web UI (no git/helm)
+#   controller  — reconciler (no git/helm/UI)
+#   reposerver  — gRPC renderer (git + helm)
+#   all-in-one  — dev/MVP: all roles + UI + git + helm
+#
+# Build examples:
+#   docker build --target apiserver -t orin-apiserver:dev .
+#   docker build --target reposerver -t orin-reposerver:dev .
 
-# ----- frontend -----
+# ----- frontend (apiserver + all-in-one only) -----
 FROM node:20-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json* ./
@@ -13,7 +16,7 @@ RUN npm install
 COPY web/ .
 RUN npm run build
 
-# ----- backend -----
+# ----- Go binaries -----
 FROM golang:1.26-alpine AS go
 WORKDIR /src
 ENV GOTOOLCHAIN=auto
@@ -22,12 +25,23 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/orin/orin/internal/config.Version=${VERSION}" -o /out/orin ./cmd/orin
+ARG LDFLAGS="-s -w -X github.com/orin/orin/internal/config.Version=${VERSION}"
 
-# ----- runtime -----
-# go-git invokes the real `git` binary when cloning from a local bare repo
-# (checkout for render). Distroless has no git — use Alpine + git + CA bundle.
-FROM alpine:3.20
+RUN CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /out/orin ./cmd/orin
+RUN CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /out/orin-apiserver ./cmd/orin-apiserver
+RUN CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /out/orin-controller ./cmd/orin-controller
+RUN CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o /out/orin-reposerver ./cmd/orin-reposerver
+
+# ----- slim runtime base (no git/helm) -----
+FROM alpine:3.20 AS runtime-base
+RUN apk add --no-cache ca-certificates \
+    && addgroup -g 65532 -S nonroot \
+    && adduser -u 65532 -S -G nonroot -h /tmp nonroot
+WORKDIR /app
+USER 65532:65532
+
+# ----- reposerver runtime (git + helm for render) -----
+FROM alpine:3.20 AS runtime-reposerver
 ARG HELM_VERSION=v3.16.4
 RUN apk add --no-cache git ca-certificates curl \
     && ARCH=$(uname -m) \
@@ -38,7 +52,28 @@ RUN apk add --no-cache git ca-certificates curl \
     && addgroup -g 65532 -S nonroot \
     && adduser -u 65532 -S -G nonroot -h /tmp nonroot
 WORKDIR /app
-COPY --from=go  /out/orin /app/orin
+USER 65532:65532
+
+FROM runtime-base AS apiserver
+COPY --from=go /out/orin-apiserver /app/orin-apiserver
+COPY --from=web /web/dist /app/web
+ENV WEB_ASSETS_DIR=/app/web HTTP_ADDR=:8080 IN_CLUSTER=true
+EXPOSE 8080
+ENTRYPOINT ["/app/orin-apiserver"]
+
+FROM runtime-base AS controller
+COPY --from=go /out/orin-controller /app/orin-controller
+ENV IN_CLUSTER=true REPO_CACHE_DIR=/tmp/orin-repos
+ENTRYPOINT ["/app/orin-controller"]
+
+FROM runtime-reposerver AS reposerver
+COPY --from=go /out/orin-reposerver /app/orin-reposerver
+ENV REPO_SERVER_ADDR=:50051 REPO_CACHE_DIR=/tmp/orin-repos
+EXPOSE 50051
+ENTRYPOINT ["/app/orin-reposerver"]
+
+FROM runtime-reposerver AS all-in-one
+COPY --from=go /out/orin /app/orin
 COPY --from=web /web/dist /app/web
 ENV WEB_ASSETS_DIR=/app/web \
     HTTP_ADDR=:8080 \

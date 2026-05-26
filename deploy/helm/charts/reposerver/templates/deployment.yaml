@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "reposerver.fullname" . }}
+  labels: {{- include "reposerver.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "reposerver.fullname" . }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "reposerver.fullname" . }}
+    spec:
+      serviceAccountName: {{ include "reposerver.serviceAccountName" . }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.global.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: reposerver
+          image: {{ include "reposerver.image" . | quote }}
+          imagePullPolicy: {{ include "reposerver.imagePullPolicy" . }}
+          ports: [{ containerPort: 50051, name: grpc }]
+          envFrom:
+            - secretRef: { name: {{ include "reposerver.secretName" . }} }
+          env:
+            - { name: REPO_SERVER_ADDR, value: ":50051" }
+            - { name: REPO_CACHE_DIR, value: /tmp/orin-repos }
+          livenessProbe:
+            exec: { command: ["true"] }
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources: {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - { name: repo-cache, mountPath: /tmp/orin-repos }
+      volumes:
+        - name: repo-cache
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "reposerver.fullname" . }}
+  labels: {{- include "reposerver.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: {{ include "reposerver.fullname" . }}
+  ports:
+    - { name: grpc, port: 50051, targetPort: 50051 }

@@ -179,6 +179,30 @@ func (s *SyncOperations) NextPending(ctx context.Context, appID string) (*domain
 	return op, err
 }
 
+// ListAppNamesWithPending returns application names that have at least one
+// Pending sync operation (for the leader controller to drain the DB queue).
+func (s *SyncOperations) ListAppNamesWithPending(ctx context.Context) ([]string, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT DISTINCT a.name
+		FROM sync_operations o
+		JOIN applications a ON a.id = o.app_id
+		WHERE o.status = 'Pending'
+		ORDER BY a.name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var names []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		names = append(names, name)
+	}
+	return names, rows.Err()
+}
+
 // ListByApp returns recent ops for an application.
 func (s *SyncOperations) ListByApp(ctx context.Context, appID string, limit int) ([]*domain.SyncOperation, error) {
 	if limit <= 0 {

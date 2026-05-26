@@ -1,0 +1,6 @@
+apiVersion: v2
+name: reposerver
+description: ORIN repo server (gRPC manifest renderer)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

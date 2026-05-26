@@ -1,0 +1,8 @@
+replicaCount: 2
+
+service:
+  type: LoadBalancer
+  port: 80
+  nodePort: null
+
+resources: {}

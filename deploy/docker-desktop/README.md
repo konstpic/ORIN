@@ -1,6 +1,7 @@
 # Docker Desktop Kubernetes
 
-Helm chart + script: build the app image, install **Postgres + orin** in namespace `orin`.
+Helm umbrella chart + script: build the app image, install **Postgres + apiserver +
+controller + reposerver** in namespace `orin` (separate subcharts, horizontally scalable).
 
 ## How the image gets into the cluster
 
@@ -8,11 +9,11 @@ Many Docker Desktop setups **do not** share the host `docker build` image store
 with Kubernetes containerd. The old `imagePullPolicy: Never` + `orin:local`
 pattern then fails with **ErrImageNeverPull**.
 
-**Default (recommended):** `./deploy/docker-desktop/deploy.sh` **pushes the
-image to [ttl.sh](https://ttl.sh)** (anonymous HTTPS, no Docker Desktop extra
-settings). Helm uses **`imagePullPolicy: Always`**. The URL is random and
-time-limited (default **8h** TTL); treat it as **dev-only / effectively public**
-to anyone who knows the name.
+**Default (recommended):** `./deploy/docker-desktop/deploy.sh` builds **three
+component images** (`orin-apiserver`, `orin-controller`, `orin-reposerver`) and
+**pushes each to [ttl.sh](https://ttl.sh)** (anonymous HTTPS). Helm uses
+**`imagePullPolicy: Always`**. URLs are random and time-limited (default **8h**
+TTL); treat them as **dev-only / effectively public** to anyone who knows the name.
 
 Override TTL tag (must be a ttl.sh duration, e.g. `24h`, `1h`):
 
@@ -53,7 +54,7 @@ chmod +x deploy/docker-desktop/deploy.sh
 Port-forward (Docker Desktop often does not map `NodePort` to localhost well):
 
 ```bash
-kubectl port-forward -n orin svc/orin 8080:80
+kubectl port-forward -n orin svc/orin-apiserver 8080:80
 ```
 
 Open **http://127.0.0.1:8080/** and sign in with **`devtoken`**.
@@ -63,11 +64,12 @@ Open **http://127.0.0.1:8080/** and sign in with **`devtoken`**.
 ```bash
 helm uninstall orin -n orin
 kubectl delete namespace orin
-kubectl delete clusterrolebinding orin 2>/dev/null || true
+kubectl delete clusterrolebinding orin-orin 2>/dev/null || true
 ```
 
 ## Files
 
 - `values.yaml` — shared overrides (no image pull policy here; set by script).
 - `values.never-pull.yaml` — local `orin:local` + `Never` (optional).
-- `deploy.sh` — build, optional ttl.sh push, `helm upgrade --install`.
+- `deploy.sh` — build, optional ttl.sh push, `helm upgrade --install` (scaled subcharts).
+- `deploy-scaled.sh` — alias for `deploy.sh` (same Helm chart).

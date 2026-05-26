@@ -1,0 +1,6 @@
+apiVersion: v2
+name: common
+description: Shared ServiceAccount, RBAC, and Secret for orin components
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

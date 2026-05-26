@@ -1,3 +1,4 @@
+# Reference manifest — prefer deploy/helm/charts/apiserver (Helm subchart).
 # Scaled deployment: 3 independent components
 #   apiserver   — stateless, scale with HPA (2+ replicas)
 #   controller  — leader election, 1 active at a time (2+ replicas for HA)

@@ -1,10 +1,13 @@
-ORIN is installed.
+ORIN is installed (scaled: apiserver, controller, reposerver).
 
 Admin token:
-  kubectl get secret -n {{ .Release.Namespace }} {{ include "orin.fullname" . }} -o jsonpath="{.data.ADMIN_TOKEN}" | base64 -d; echo
+  kubectl get secret -n {{ .Release.Namespace }} {{ .Release.Name }}-secret -o jsonpath="{.data.ADMIN_TOKEN}" | base64 -d; echo
 
-Port-forward:
-  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "orin.fullname" . }} 8080:{{ .Values.service.port }}
+Port-forward API:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ .Release.Name }}-apiserver 8080:{{ .Values.apiserver.service.port }}
 
 Open:
   http://127.0.0.1:8080/
+
+Components:
+  kubectl get deploy,svc,hpa -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}

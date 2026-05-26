@@ -19,7 +19,7 @@ func IsControlPlaneObject(u *unstructured.Unstructured) bool {
 		return false
 	}
 	av := strings.ToLower(u.GetAPIVersion())
-	if !strings.HasPrefix(av, "orin.io") && !strings.Contains(av, "argoproj.io") {
+	if !IsOrinAPIGroup(av) && !strings.Contains(av, "argoproj.io") {
 		return false
 	}
 	kind := u.GetKind()

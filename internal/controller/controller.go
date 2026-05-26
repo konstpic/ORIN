@@ -6,6 +6,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -73,12 +74,14 @@ func (c *Controller) Run(ctx context.Context) error {
 		go c.statusWorker(ctx)
 	}
 	go c.syncWorker(ctx)
+	go c.syncPendingTicker(ctx)
 	go c.resyncTicker(ctx)
 	go c.gitPollTicker(ctx)
 	if c.cfg.AppsCatalogRepoURL != "" {
 		go c.appsCatalogTicker(ctx)
 	}
 	c.enqueueAll(ctx)
+	c.enqueuePendingSyncs(ctx)
 
 	<-ctx.Done()
 	c.statusQ.Close()
@@ -122,6 +125,33 @@ func (c *Controller) enqueueAll(ctx context.Context) {
 	}
 	for _, a := range apps {
 		c.statusQ.Add(a.Name)
+	}
+}
+
+// enqueuePendingSyncs schedules sync workers for apps with Pending rows in the
+// database. Required in scaled mode: the API server enqueues sync on its local
+// in-memory queue, but only the leader controller runs syncWorker.
+func (c *Controller) enqueuePendingSyncs(ctx context.Context) {
+	names, err := c.store.Sync.ListAppNamesWithPending(ctx)
+	if err != nil {
+		slog.Warn("enqueue pending syncs", "err", err)
+		return
+	}
+	for _, name := range names {
+		c.syncQ.Add(name)
+	}
+}
+
+func (c *Controller) syncPendingTicker(ctx context.Context) {
+	t := time.NewTicker(3 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			c.enqueuePendingSyncs(ctx)
+		}
 	}
 }
 
@@ -180,7 +210,9 @@ func (c *Controller) statusWorker(ctx context.Context) {
 		}
 		if err := c.reconcileStatus(ctx, key); err != nil {
 			slog.Warn("reconcileStatus error", "app", key, "err", err)
-			c.statusQ.AddAfter(key, 10*time.Second)
+			if !errors.Is(err, store.ErrNotFound) {
+				c.statusQ.AddAfter(key, 10*time.Second)
+			}
 		}
 		c.statusQ.Done(key)
 	}

@@ -130,11 +130,12 @@ spec:
 | `APPS_CATALOG_REVISION` | Git ref to resolve (default `HEAD`). |
 | `APPS_CATALOG_INTERVAL` | Poll interval (default `5m`, minimum `10s` when catalog is enabled). |
 
-**Helm:** in `deploy/helm/values.yaml` set `appsCatalog.enabled: true` and
-`appsCatalog.repoUrl` to the **exact** same string as the repository URL in
-ORIN (including or omitting `.git` — it must match `Repositories`). Upgrade
-the release so the pod gets `APPS_CATALOG_*` env vars. If those variables are
-unset, `orin/apps.yaml` in Git is never read and no rows are created.
+**Helm:** in `deploy/helm/values.yaml` set `controller.appsCatalog.enabled: true`
+and `controller.appsCatalog.repoUrl` to the **exact** same string as the
+repository URL in ORIN (including or omitting `.git` — it must match
+`Repositories`). Upgrade the release so the **controller** pods get
+`APPS_CATALOG_*` env vars. If those variables are unset, `orin/apps.yaml` in Git
+is never read and no rows are created.
 
 On each tick the controller **creates** missing applications and **updates**
 changed fields. Applications **removed** from the YAML file are **not**

@@ -1,0 +1,2 @@
+# PVC size (credentials live in global.postgres).
+storage: 1Gi

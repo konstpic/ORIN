@@ -20,8 +20,12 @@ func TestIsControlPlaneObject(t *testing.T) {
 		kind       string
 		want       bool
 	}{
+		{"orin.dev/v1alpha1", "Application", true},
+		{"orin.dev/v1alpha1", "AppProject", true},
 		{"orin.io/v1alpha1", "Application", true},
 		{"orin.io/v1alpha1", "AppProject", true},
+		{"k8s-ui.io/v1alpha1", "Application", true},
+		{"k8s-ui.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "Application", true},
 		{"argoproj.io/v1alpha1", "AppProject", true},
 		{"argoproj.io/v1alpha1", "ApplicationSet", false},

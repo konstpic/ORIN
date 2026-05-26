@@ -1,0 +1,45 @@
+{{- $g := .Values.global.postgres -}}
+{{- if $g.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "postgres.fullname" . }}
+  labels: {{- include "postgres.labels" . | nindent 4 }}
+spec:
+  selector: {{- include "postgres.labels" . | nindent 4 }}
+  ports: [{ port: 5432, targetPort: 5432 }]
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "postgres.fullname" . }}
+  labels: {{- include "postgres.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "postgres.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels: {{- include "postgres.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "postgres.labels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          env:
+            - { name: POSTGRES_USER, value: {{ $g.username | quote }} }
+            - { name: POSTGRES_PASSWORD, value: {{ $g.password | quote }} }
+            - { name: POSTGRES_DB, value: {{ $g.database | quote }} }
+          ports: [{ containerPort: 5432 }]
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", {{ $g.username | quote }}]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          volumeMounts: [{ name: data, mountPath: /var/lib/postgresql/data }]
+  volumeClaimTemplates:
+    - metadata: { name: data }
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources: { requests: { storage: {{ .Values.storage }} } }
+{{- end }}

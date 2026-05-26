@@ -1,0 +1,10 @@
+replicaCount: 2
+
+resources: {}
+
+appsCatalog:
+  enabled: false
+  repoUrl: ""
+  path: orin/apps.yaml
+  revision: HEAD
+  interval: 5m
