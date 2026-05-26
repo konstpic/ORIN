@@ -46,7 +46,6 @@ if [[ "${USE_DOCKERHUB:-0}" == "1" ]]; then
   DOCKERHUB_USER="${DOCKERHUB_USER:-konstpic}"
   CHART_TAG="${DOCKERHUB_TAG:-0.2.2}"
   echo "==> Build and push to Docker Hub (${DOCKERHUB_USER}/orin-*:${CHART_TAG})"
-  HELM_EXTRA_FILES+=(-f "${THIS_DIR}/values.dockerhub.yaml")
   HELM_EXTRA_SET+=(--set-string "global.image.tag=${CHART_TAG}")
   HELM_EXTRA_SET+=(--set-string "global.images.apiserver.repository=${DOCKERHUB_USER}/orin-apiserver")
   HELM_EXTRA_SET+=(--set-string "global.images.controller.repository=${DOCKERHUB_USER}/orin-controller")

@@ -1,18 +1,18 @@
 # Umbrella chart for scaled ORIN (subcharts under charts/).
-# Images are published to GHCR on tag push (see .github/workflows/ghcr.yaml).
+# Images: Docker Hub https://hub.docker.com/u/konstpic
 
 global:
   image:
-    tag: latest
+    tag: "0.2.2"
     pullPolicy: IfNotPresent
 
   images:
     apiserver:
-      repository: ghcr.io/konstpic/orin-apiserver
+      repository: konstpic/orin-apiserver
     controller:
-      repository: ghcr.io/konstpic/orin-controller
+      repository: konstpic/orin-controller
     reposerver:
-      repository: ghcr.io/konstpic/orin-reposerver
+      repository: konstpic/orin-reposerver
 
   adminToken: devtoken
   encryptionKey: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"

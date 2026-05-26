@@ -3,7 +3,34 @@ entries:
   orin:
   - apiVersion: v2
     appVersion: 0.2.2
-    created: "2026-05-26T14:16:42.026224+03:00"
+    created: "2026-05-26T14:31:03.313369+03:00"
+    dependencies:
+    - name: common
+      repository: ""
+      version: 0.1.0
+    - name: postgres
+      repository: ""
+      version: 0.1.0
+    - name: reposerver
+      repository: ""
+      version: 0.1.0
+    - name: controller
+      repository: ""
+      version: 0.1.0
+    - name: apiserver
+      repository: ""
+      version: 0.1.0
+    description: GitOps dashboard for Kubernetes (scaled apiserver + controller +
+      reposerver)
+    digest: 65a48a6386f11f53f32e9d63db029fcfc49e09ef053dfea1be8641d4c4579db8
+    name: orin
+    type: application
+    urls:
+    - orin-0.2.3.tgz
+    version: 0.2.3
+  - apiVersion: v2
+    appVersion: 0.2.2
+    created: "2026-05-26T14:31:03.313028+03:00"
     dependencies:
     - name: common
       repository: ""
@@ -30,7 +57,7 @@ entries:
     version: 0.2.2
   - apiVersion: v2
     appVersion: 0.2.1
-    created: "2026-05-26T14:16:42.025915+03:00"
+    created: "2026-05-26T14:31:03.312273+03:00"
     dependencies:
     - name: common
       repository: ""
@@ -57,7 +84,7 @@ entries:
     version: 0.2.1
   - apiVersion: v2
     appVersion: 0.2.0
-    created: "2026-05-26T14:16:42.025338+03:00"
+    created: "2026-05-26T14:31:03.311907+03:00"
     dependencies:
     - name: common
       repository: ""
@@ -84,7 +111,7 @@ entries:
     version: 0.2.0
   - apiVersion: v2
     appVersion: 0.1.0
-    created: "2026-05-26T14:16:42.024811+03:00"
+    created: "2026-05-26T14:31:03.311532+03:00"
     description: GitOps dashboard for Kubernetes
     digest: 990b9da62f926766382dedf86e0a7579785d6e99f45a974c09f32ce36a50a26a
     name: orin
@@ -92,4 +119,4 @@ entries:
     urls:
     - orin-0.1.0.tgz
     version: 0.1.0
-generated: "2026-05-26T14:16:42.023516+03:00"
+generated: "2026-05-26T14:31:03.311012+03:00"

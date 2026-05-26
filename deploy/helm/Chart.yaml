@@ -2,7 +2,7 @@ apiVersion: v2
 name: orin
 description: GitOps dashboard for Kubernetes (scaled apiserver + controller + reposerver)
 type: application
-version: 0.2.2
+version: 0.2.3
 appVersion: "0.2.2"
 dependencies:
   - name: common
