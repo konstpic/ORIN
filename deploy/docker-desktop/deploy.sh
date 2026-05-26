@@ -39,6 +39,30 @@ COMPONENTS=(apiserver controller reposerver)
 HELM_EXTRA_SET=()
 HELM_EXTRA_FILES=(-f "${THIS_DIR}/values.yaml")
 
+if [[ "${USE_GHCR:-0}" == "1" ]]; then
+  CHART_TAG="${GHCR_TAG:-0.2.2}"
+  echo "==> Deploy from GHCR (tag ${CHART_TAG})"
+  HELM_EXTRA_FILES+=(-f "${THIS_DIR}/values.ghcr.yaml")
+  HELM_EXTRA_SET+=(--set-string "global.image.tag=${CHART_TAG}")
+
+  if [[ -z "${GHCR_TOKEN:-}" ]]; then
+    GHCR_TOKEN="$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill 2>/dev/null | awk -F= '/^password=/{print $2; exit}')"
+  fi
+  if [[ -z "${GHCR_TOKEN:-}" ]]; then
+    echo "Error: GHCR images are private. Set GHCR_TOKEN or run: docker login ghcr.io"
+    exit 1
+  fi
+  GHCR_USER="${GHCR_USER:-$(git config github.user 2>/dev/null || git config user.name 2>/dev/null || echo konstpic)}"
+  echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USER}" --password-stdin >/dev/null
+  kubectl create namespace "${NS}" --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  kubectl create secret docker-registry ghcr-credentials \
+    --namespace "${NS}" \
+    --docker-server=ghcr.io \
+    --docker-username="${GHCR_USER}" \
+    --docker-password="${GHCR_TOKEN}" \
+    --dry-run=client -o yaml | kubectl apply -f - >/dev/null
+  echo "==> ghcr-credentials secret updated in ${NS}"
+else
 for c in "${COMPONENTS[@]}"; do
   echo "==> Building orin-${c}:local (target ${c})"
   docker build --no-cache --target "${c}" -t "orin-${c}:local" "${ROOT}"
@@ -60,6 +84,7 @@ else
     HELM_EXTRA_SET+=(--set-string "global.images.${c}.tag=${TTL_SUFFIX}")
   done
   HELM_EXTRA_SET+=(--set-string "global.image.tag=${TTL_SUFFIX}" --set-string "global.image.pullPolicy=Always")
+fi
 fi
 
 echo "==> Helm install/upgrade ${RELEASE} in namespace ${NS}"
@@ -104,7 +129,10 @@ echo "Then open: http://127.0.0.1:${PF_PORT}/"
 echo ""
 echo "Sign in with token: devtoken"
 echo ""
-if [[ "${USE_NEVER}" != "1" ]]; then
+if [[ "${USE_GHCR:-0}" == "1" ]]; then
+  echo "Images: ghcr.io/konstpic/orin-{apiserver,controller,reposerver}:${GHCR_TAG:-0.2.2}"
+elif [[ "${USE_NEVER}" != "1" ]]; then
   echo "Note: component images were pushed to ttl.sh (public URLs, TTL ${TTL_SUFFIX:-8h})."
   echo "      For offline / no-registry: set USE_LOCAL_IMAGE_NEVER=1 (advanced)."
+  echo "      For release images: USE_GHCR=1 $0"
 fi

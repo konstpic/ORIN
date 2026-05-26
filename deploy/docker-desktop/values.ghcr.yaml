@@ -1,0 +1,16 @@
+# Published images from GitHub release (ghcr.yaml on v* tags).
+# Use: USE_GHCR=1 ./deploy.sh  or  helm upgrade ... -f values.ghcr.yaml
+
+global:
+  image:
+    tag: "0.2.2"
+    pullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: ghcr-credentials
+  images:
+    apiserver:
+      repository: ghcr.io/konstpic/orin-apiserver
+    controller:
+      repository: ghcr.io/konstpic/orin-controller
+    reposerver:
+      repository: ghcr.io/konstpic/orin-reposerver

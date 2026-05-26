@@ -49,6 +49,7 @@ jobs:
           commit_message: "chore(charts): publish orin ${{ steps.ver.outputs.version }}"
           commit_user_name: github-actions[bot]
           commit_user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to GHCR (Helm OCI)
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin

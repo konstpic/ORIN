@@ -43,9 +43,9 @@ USER 65532:65532
 # ----- reposerver runtime (git + helm for render) -----
 FROM alpine:3.20 AS runtime-reposerver
 ARG HELM_VERSION=v3.16.4
+ARG TARGETARCH
 RUN apk add --no-cache git ca-certificates curl \
-    && ARCH=$(uname -m) \
-    && case "$ARCH" in x86_64) H=amd64 ;; aarch64) H=arm64 ;; *) H=amd64 ;; esac \
+    && case "${TARGETARCH}" in amd64) H=amd64 ;; arm64) H=arm64 ;; *) H=amd64 ;; esac \
     && curl -fsSL "https://get.helm.sh/helm-${HELM_VERSION}-linux-${H}.tar.gz" | tar xz \
     && install -m0755 "linux-${H}/helm" /usr/local/bin/helm \
     && rm -rf "linux-${H}" \

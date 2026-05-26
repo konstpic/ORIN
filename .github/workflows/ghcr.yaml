@@ -2,12 +2,22 @@ name: Publish images to GHCR
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag (e.g. 0.2.2). Default on tag push is tag without v prefix."
+        required: false
+        type: string
 
 permissions:
   contents: read
   packages: write
+
+concurrency:
+  group: ghcr-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   REGISTRY: ghcr.io
@@ -20,15 +30,26 @@ jobs:
       matrix:
         include:
           - target: apiserver
-            image: konstpic/orin-apiserver
+            image: orin-apiserver
           - target: controller
-            image: konstpic/orin-controller
+            image: orin-controller
           - target: reposerver
-            image: konstpic/orin-reposerver
+            image: orin-reposerver
           - target: all-in-one
-            image: konstpic/orin
+            image: orin
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve image tag
+        id: ver
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "version=${{ inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: docker/setup-qemu-action@v3
 
@@ -43,11 +64,11 @@ jobs:
       - id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ matrix.image }}
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ matrix.image }}
           tags: |
-            type=semver,pattern={{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=main-,enable={{is_default_branch}}
+            type=raw,value=${{ steps.ver.outputs.version }}
+            type=raw,value=latest,enable={{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=main-,enable={{ github.ref == 'refs/heads/main' }}
 
       - uses: docker/build-push-action@v6
         with:
@@ -56,7 +77,9 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: VERSION=${{ github.ref_name }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          build-args: VERSION=${{ steps.ver.outputs.version }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
