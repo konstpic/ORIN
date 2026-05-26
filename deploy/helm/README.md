@@ -23,14 +23,14 @@ Published on every `v*` tag and `main` push ([`.github/workflows/ghcr.yaml`](../
 | reposerver | `ghcr.io/konstpic/orin-reposerver` |
 | all-in-one (dev) | `ghcr.io/konstpic/orin` |
 
-Tag `v0.2.0` → image tags `0.2.0` (+ `latest` on `main`).
+Tag `v0.2.1` → image tags `0.2.1` (+ `latest` on `main`).
 
 ## Install from Git
 
 ```bash
 helm upgrade --install orin ./deploy/helm \
   --namespace orin --create-namespace \
-  --set global.image.tag=0.2.0
+  --set global.image.tag=0.2.1
 ```
 
 ## Install from OCI (release tag)
@@ -38,7 +38,7 @@ helm upgrade --install orin ./deploy/helm \
 ```bash
 helm registry login ghcr.io -u YOUR_GITHUB_USER
 helm upgrade --install orin oci://ghcr.io/konstpic/charts/orin \
-  --version 0.2.0 \
+  --version 0.2.1 \
   --namespace orin --create-namespace
 ```
 
@@ -46,14 +46,14 @@ helm upgrade --install orin oci://ghcr.io/konstpic/charts/orin \
 
 ```bash
 make helm-package
-# charts/orin-0.2.0.tgz + charts/index.yaml
+# charts/orin-0.2.1.tgz + charts/index.yaml
 ```
 
 ## Install from Git `charts/` repo
 
 ```bash
 helm repo add orin https://konstpic.github.io/ORIN/charts/  # or raw Git path
-helm upgrade --install orin orin/orin --version 0.2.0 -n orin --create-namespace
+helm upgrade --install orin orin/orin --version 0.2.1 -n orin --create-namespace
 ```
 
 Docker Desktop: [`../docker-desktop/deploy.sh`](../docker-desktop/deploy.sh).
