@@ -65,8 +65,8 @@ function NodeRow({
         <span className="text-sm font-medium text-[var(--color-text)] truncate flex-1">{node.name}</span>
         <span className="text-xs text-[var(--color-text-muted)] shrink-0">{node.namespace}</span>
         <span className="shrink-0 flex flex-wrap gap-1 items-center">
-          <HealthBadge status={node.health} />
-          <SyncBadge status={node.sync} />
+          <HealthBadge status={node.health} size="sm" />
+          <SyncBadge status={node.sync} size="sm" />
         </span>
       </div>
       {node.children?.map((c) => (

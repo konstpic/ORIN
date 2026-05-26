@@ -63,6 +63,23 @@ const GROUPABLE_KINDS = new Set([
   "Application",
 ]);
 
+const healthRank: Record<HealthStatus, number> = {
+  Healthy: 0,
+  Suspended: 1,
+  Progressing: 2,
+  Missing: 3,
+  Degraded: 4,
+  Unknown: 5,
+};
+
+function worstHealth(...statuses: HealthStatus[]): HealthStatus {
+  let worst: HealthStatus = "Healthy";
+  for (const s of statuses) {
+    if ((healthRank[s] ?? 5) > (healthRank[worst] ?? 0)) worst = s;
+  }
+  return worst;
+}
+
 function aggregatePodHealth(pods: ResourceNode[]): HealthStatus {
   if (!pods.length) return "Unknown";
   if (pods.some((p) => p.health === "Degraded")) return "Degraded";
@@ -118,7 +135,10 @@ function compactManyPodsUnderNode(
       ...node,
       children: childrenAfterPodGroup,
       groupedPods: pods,
-      health: aggregatePodHealth(pods),
+      health:
+        node.kind === "Deployment"
+          ? worstHealth(node.health, aggregatePodHealth(pods))
+          : aggregatePodHealth(pods),
     };
   }
 

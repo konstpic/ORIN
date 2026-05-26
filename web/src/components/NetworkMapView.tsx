@@ -111,8 +111,8 @@ function NetworkResourceNode(props: NodeProps) {
             {data.raw.isKindGroup ? `${data.raw.groupedMembers?.length ?? 0} ${data.kind}s` : data.name}
           </div>
           <div className="mt-1 flex flex-wrap gap-1 items-center">
-            <HealthBadge status={healthStatus} />
-            <SyncBadge status={syncStatus} />
+            <HealthBadge status={healthStatus} size="sm" />
+            <SyncBadge status={syncStatus} size="sm" />
           </div>
           {age && (
             <div className="mt-1.5 pt-1 border-t border-[var(--color-border)]/50 flex items-center justify-between gap-2">

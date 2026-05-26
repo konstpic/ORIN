@@ -124,11 +124,15 @@ fi
 fi
 
 echo "==> Helm install/upgrade ${RELEASE} in namespace ${NS}"
-helm upgrade --install "${RELEASE}" "${ROOT}/deploy/helm" \
-  --namespace "${NS}" \
-  --create-namespace \
-  "${HELM_EXTRA_FILES[@]}" \
-  "${HELM_EXTRA_SET[@]}"
+helm_cmd=(helm upgrade --install "${RELEASE}" "${ROOT}/deploy/helm"
+  --namespace "${NS}"
+  --create-namespace
+)
+helm_cmd+=("${HELM_EXTRA_FILES[@]}")
+if ((${#HELM_EXTRA_SET[@]} > 0)); then
+  helm_cmd+=("${HELM_EXTRA_SET[@]}")
+fi
+"${helm_cmd[@]}"
 
 echo "==> Waiting for workloads"
 if ! kubectl rollout status deployment/"${RELEASE}-reposerver" -n "${NS}" --timeout=600s; then

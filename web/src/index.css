@@ -49,3 +49,115 @@ body {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Compact pod tiles (topology + detail panel) */
+@keyframes pod-tile-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pod-tile-exit {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+    filter: brightness(1);
+    box-shadow: none;
+  }
+  35% {
+    opacity: 1;
+    transform: scale(1.08);
+    filter: brightness(1.15);
+    box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.65);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.25);
+    filter: brightness(1.5);
+    box-shadow: 0 0 0 0 rgba(251, 146, 60, 0);
+  }
+}
+
+.pod-tile-enter {
+  animation: pod-tile-enter 0.38s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pod-tile-exit {
+  animation: pod-tile-exit 0.52s ease-in forwards;
+  pointer-events: none;
+}
+
+.pod-tile-terminating {
+  z-index: 1;
+}
+
+/* Full Pod nodes on topology map */
+@keyframes rf-node-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes rf-node-exit {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.72);
+    filter: brightness(1.25);
+  }
+}
+
+.react-flow__node.rf-node-enter {
+  animation: rf-node-enter 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.react-flow__node.rf-node-exit {
+  animation: rf-node-exit 0.34s ease-in forwards;
+  pointer-events: none !important;
+}
+
+/* Pod rows in side card list */
+@keyframes pod-row-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes pod-row-exit {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.97);
+    filter: brightness(1.25);
+  }
+}
+
+.pod-row-enter {
+  animation: pod-row-enter 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.pod-row-exit {
+  animation: pod-row-exit 0.3s ease-in forwards;
+  pointer-events: none;
+}

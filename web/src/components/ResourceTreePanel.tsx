@@ -19,6 +19,10 @@ type PendingAction = {
   node: ContextMenuState["node"];
 };
 
+/** Right drawer: ~2/3 viewport on sm+ (logs, terminal, resource details). */
+const RESOURCE_DRAWER_PANEL_CLASS =
+  "relative pointer-events-auto h-full w-full max-w-[100vw] sm:w-2/3 border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden transition-transform duration-300 ease-out";
+
 export function ResourceTreePanel({ name, app }: { name: string; app: Application }) {
   const navigate = useNavigate();
   const qc = useQueryClient();
@@ -413,7 +417,7 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             onClick={closeSidebar}
           />
           <div
-            className="relative pointer-events-auto h-full w-full max-w-[min(100vw,720px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden transition-transform duration-300 ease-out"
+            className={RESOURCE_DRAWER_PANEL_CLASS}
             style={{ marginTop: "env(safe-area-inset-top, 0)", transform: sidebarOpen ? "translateX(0)" : "translateX(100%)" }}
           >
             <PodDrawer appName={name} node={selected} onClose={closeSidebar} />
@@ -429,7 +433,7 @@ export function ResourceTreePanel({ name, app }: { name: string; app: Applicatio
             onClick={closeSidebar}
           />
           <div
-            className="relative pointer-events-auto h-full w-full max-w-[min(100vw,720px)] border-l border-[var(--color-border)] bg-[var(--color-surface)] shadow-2xl overflow-hidden transition-transform duration-300 ease-out"
+            className={RESOURCE_DRAWER_PANEL_CLASS}
             style={{ transform: sidebarOpen ? "translateX(0)" : "translateX(100%)" }}
           >
             <ResourceDetailPanel

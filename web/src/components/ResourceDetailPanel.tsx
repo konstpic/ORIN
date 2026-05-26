@@ -7,7 +7,8 @@ import type { Application, PodEvent, ResourceDiff, ResourceNode } from "../api/t
 import { HealthBadge, SyncBadge } from "./Badges";
 import { iconForKind, kindIconTileClass } from "../k8s/kindMeta";
 import { stripManagedFieldsYaml } from "../utils/yamlManagedFields";
-import { podTileChar, podTileClass, podTileTitle } from "../k8s/podTile";
+import { GroupedPodsBlock } from "./AnimatedPodTiles";
+import { EMPTY_GROUPED_PODS } from "../state/groupedPodAnimations";
 
 function resourceEventRowClass(ev: PodEvent): string {
   if (ev.type === "Warning") return "bg-amber-500/5 hover:bg-amber-500/10";
@@ -114,6 +115,8 @@ export function ResourceDetailPanel({
   const [applyError, setApplyError] = useState<string | null>(null);
   const [eventFilter, setEventFilter] = useState<"all" | "warning">("all");
   const qc = useQueryClient();
+  const groupedPods = node.groupedPods ?? EMPTY_GROUPED_PODS;
+  const isPodParent = node.kind === "ReplicaSet" || node.kind === "Deployment";
 
   const isSyntheticApp = node.kind === "Application" && node.uid.startsWith("synthetic:app:");
   const isKindGroup = !!node.isKindGroup;
@@ -263,8 +266,8 @@ export function ResourceDetailPanel({
                         className="w-full flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-2 text-left text-xs hover:border-[var(--color-border-strong)]"
                       >
                         <span className="font-mono text-[var(--color-text)] truncate flex-1">{m.name}</span>
-                        <span className="shrink-0"><HealthBadge status={m.health} /></span>
-                        <span className="shrink-0"><SyncBadge status={m.sync} /></span>
+                        <span className="shrink-0"><HealthBadge status={m.health} size="sm" /></span>
+                        <span className="shrink-0"><SyncBadge status={m.sync} size="sm" /></span>
                       </button>
                     </li>
                   ))}
@@ -289,7 +292,7 @@ export function ResourceDetailPanel({
                 <dd className="text-[var(--color-text-muted)]">—</dd>
                 <dt className="text-[var(--color-text-muted)] text-xs uppercase">Sync</dt>
                 <dd className="flex flex-wrap gap-2 items-center">
-                  <SyncBadge status={node.sync} />
+                  <SyncBadge status={node.sync} size="sm" />
                 </dd>
                 {node.syncMessage ? (
                   <>
@@ -299,31 +302,21 @@ export function ResourceDetailPanel({
                 ) : null}
                 <dt className="text-[var(--color-text-muted)] text-xs uppercase">Health</dt>
                 <dd>
-                  <HealthBadge status={node.health} />
+                  <HealthBadge status={node.health} size="sm" />
                 </dd>
               </dl>
             )}
-            {!isSyntheticApp &&
-              (node.kind === "ReplicaSet" || node.kind === "Deployment") &&
-              !!node.groupedPods?.length && (
+            {!isSyntheticApp && isPodParent && (
                 <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 space-y-3">
-                  <div className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wide">
-                    Pods ({node.groupedPods.length})
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {node.groupedPods.map((p) => (
-                      <button
-                        key={p.uid}
-                        type="button"
-                        title={podTileTitle(p)}
-                        onClick={() => onOpenPod?.(p)}
-                        className={`inline-flex size-7 shrink-0 items-center justify-center rounded-[4px] border text-[10px] font-bold leading-none hover:brightness-110 ${podTileClass(p)}`}
-                      >
-                        {podTileChar(p)}
-                      </button>
-                    ))}
-                  </div>
-                  {onExpandCompactPods && (
+                  <GroupedPodsBlock
+                    parentKey={node.uid}
+                    pods={groupedPods}
+                    size="md"
+                    variant="card"
+                    onPodClick={onOpenPod}
+                    className="gap-1.5"
+                  />
+                  {onExpandCompactPods && groupedPods.length > 0 && (
                     <button
                       type="button"
                       className="w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-accent-muted)] px-3 py-2 text-xs font-medium text-[var(--color-accent)] hover:brightness-110"

@@ -9,6 +9,7 @@ import { useAuth } from "../state/auth";
 import { HealthBadge } from "./Badges";
 import type { HealthStatus, PodEvent, ResourceNode } from "../api/types";
 import { iconForKind, kindIconTileClass } from "../k8s/kindMeta";
+import { useAnimatedList } from "../hooks/useAnimatedList";
 
 type Tab = "logs" | "terminal" | "events";
 
@@ -282,7 +283,7 @@ export function PodDrawer({
           <div className="font-semibold text-[var(--color-text)] truncate">{pod}</div>
           <div className="text-xs text-[var(--color-text-muted)] truncate">{node.namespace}</div>
           <div className="mt-1 flex items-center gap-2">
-            <HealthBadge status={node.health as HealthStatus} />
+            <HealthBadge status={node.health as HealthStatus} size="sm" />
             {summary?.phase && (
               <span className="text-xs font-mono text-[var(--color-text-muted)]">{summary.phase}</span>
             )}
@@ -537,6 +538,7 @@ export function PodGroupSideCard({
   onClose: () => void;
 }) {
   const pods = node.groupedPods ?? [];
+  const animatedPods = useAnimatedList(pods, (p) => p.uid);
   const Icon = iconForKind("PodGroup");
   const parentKind = node.groupParentKind === "Deployment" ? "Deployment" : "ReplicaSet";
   return (
@@ -553,7 +555,7 @@ export function PodGroupSideCard({
             <div className="font-semibold text-[var(--color-text)]">{pods.length} pods</div>
             <div className="text-xs text-[var(--color-text-muted)] mt-0.5">Application: {appName}</div>
             <div className="mt-1.5">
-              <HealthBadge status={node.health as HealthStatus} />
+              <HealthBadge status={node.health as HealthStatus} size="sm" />
             </div>
           </div>
         </div>
@@ -582,12 +584,18 @@ export function PodGroupSideCard({
       <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
         <div className="text-xs font-medium text-[var(--color-text-muted)] uppercase tracking-wide mb-2">Pods</div>
         <ul className="space-y-1">
-          {pods.map((p) => (
-            <li key={p.uid}>
+          {animatedPods.map(({ item: p, key, status }) => (
+            <li
+              key={key}
+              className={
+                status === "entering" ? "pod-row-enter" : status === "exiting" ? "pod-row-exit" : ""
+              }
+            >
               <button
                 type="button"
-                className="w-full flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-left text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)]"
+                className="w-full flex items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2 text-left text-sm text-[var(--color-text)] hover:border-[var(--color-border-strong)] disabled:pointer-events-none"
                 onClick={() => onSelectPod(p)}
+                disabled={status === "exiting"}
               >
                 <Boxes className="size-4 shrink-0 text-[var(--color-accent)]" strokeWidth={1.75} />
                 <span className="truncate font-mono text-xs">{p.name}</span>

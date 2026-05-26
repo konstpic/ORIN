@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import dagre from "dagre";
 import {
   Background,
@@ -21,7 +21,8 @@ import { ExternalLink } from "lucide-react";
 import { HealthBadge, SyncBadge } from "./Badges";
 import type { HealthStatus, ResourceNode, SyncStatus } from "../api/types";
 import { iconForKind, kindIconTileClass } from "../k8s/kindMeta";
-import { podTileChar, podTileClass, podTileTitle } from "../k8s/podTile";
+import { GroupedPodsBlock } from "./AnimatedPodTiles";
+import { EMPTY_GROUPED_PODS } from "../state/groupedPodAnimations";
 import { relativeTime } from "../utils/relativeTime";
 
 const maxGroupedPodsShown = 20;
@@ -87,8 +88,8 @@ function ApplicationNode(props: NodeProps) {
             {data.name}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1">
-            <HealthBadge status={data.health} />
-            <SyncBadge status={data.sync} />
+            <HealthBadge status={data.health} size="sm" />
+            <SyncBadge status={data.sync} size="sm" />
           </div>
         </div>
       </div>
@@ -134,39 +135,23 @@ function KindNode(props: NodeProps) {
             {data.raw.isKindGroup ? `${data.raw.groupedMembers?.length ?? 0} ${data.kind}s` : data.name}
           </div>
           <div className="mt-1 flex flex-wrap gap-1 items-center">
-            <HealthBadge status={data.health} />
-            <SyncBadge status={data.sync} />
+            <HealthBadge status={data.health} size="sm" />
+            <SyncBadge status={data.sync} size="sm" />
           </div>
           {data.syncMessage ? (
             <div className="mt-1 text-[10px] text-amber-300/90 leading-snug line-clamp-2" title={data.syncMessage}>
               {data.syncMessage}
             </div>
           ) : null}
-          {data.raw.groupedPods &&
-            data.raw.groupedPods.length > 0 &&
-            (data.raw.kind === "ReplicaSet" || data.raw.kind === "Deployment") && (
-              <div className="mt-1.5 pt-1.5 border-t border-[var(--color-border)]/70">
-                <div className="text-[9px] uppercase tracking-wide text-[var(--color-text-muted)] mb-1">
-                  Pods ({data.raw.groupedPods.length})
-                </div>
-                <div className="flex flex-wrap gap-1 max-w-[210px]">
-                  {data.raw.groupedPods.slice(0, maxGroupedPodsShown).map((p) => (
-                    <span
-                      key={p.uid}
-                      className={`inline-flex size-5 shrink-0 items-center justify-center rounded-[3px] border text-[9px] font-bold leading-none ${podTileClass(p)}`}
-                      title={podTileTitle(p)}
-                    >
-                      {podTileChar(p)}
-                    </span>
-                  ))}
-                  {data.raw.groupedPods.length > maxGroupedPodsShown && (
-                    <span className="text-[9px] text-[var(--color-text-muted)] self-center pl-0.5">
-                      +{data.raw.groupedPods.length - maxGroupedPodsShown}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
+          {(data.raw.kind === "ReplicaSet" || data.raw.kind === "Deployment") && (
+            <GroupedPodsBlock
+              parentKey={data.raw.uid}
+              pods={data.raw.groupedPods ?? EMPTY_GROUPED_PODS}
+              size="xs"
+              maxShown={maxGroupedPodsShown}
+              className="max-w-[210px]"
+            />
+          )}
           {(revision || age) && (
             <div className="mt-1.5 pt-1 border-t border-[var(--color-border)]/50 flex items-center justify-between gap-2">
               {revision ? (
@@ -218,8 +203,8 @@ function ChildAppNode(props: NodeProps) {
             {data.name}
           </div>
           <div className="mt-1.5 flex flex-wrap gap-1">
-            <HealthBadge status={data.health} />
-            <SyncBadge status={data.sync} />
+            <HealthBadge status={data.health} size="sm" />
+            <SyncBadge status={data.sync} size="sm" />
           </div>
           {age && (
             <div className="mt-1 text-[9px] text-[var(--color-text-muted)]" title={data.raw.creationTimestamp}>
@@ -358,14 +343,64 @@ function TopologyFlowInner({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [isFirstRender, setIsFirstRender] = useState(true);
+  const prevFlowNodesRef = useRef<Node[]>([]);
 
   useEffect(() => {
-    setNodes(initialNodes);
+    const prev = prevFlowNodesRef.current;
+    const prevById = new Map(prev.map((n) => [n.id, n]));
+    const nextById = new Map(initialNodes.map((n) => [n.id, n]));
+    const isPod = (n: Node) => (n.data as FlowNodeData)?.raw?.kind === "Pod";
+
+    const exiting: Node[] = [];
+    for (const old of prev) {
+      if (!nextById.has(old.id) && isPod(old)) {
+        exiting.push({
+          ...old,
+          className: "rf-node-exit",
+          selectable: false,
+          focusable: false,
+        });
+      }
+    }
+
+    const merged = initialNodes.map((n) => {
+      if (!prevById.has(n.id) && isPod(n)) {
+        return { ...n, className: "rf-node-enter" };
+      }
+      return n;
+    });
+
+    setNodes([...merged, ...exiting]);
     setEdges(initialEdges);
+    prevFlowNodesRef.current = initialNodes;
+
+    let enterTimer: ReturnType<typeof setTimeout> | undefined;
+    if (merged.some((n) => n.className === "rf-node-enter")) {
+      enterTimer = setTimeout(() => {
+        setNodes((current) =>
+          current.map((n) =>
+            n.className === "rf-node-enter" ? { ...n, className: undefined } : n,
+          ),
+        );
+      }, 450);
+    }
+
+    let exitTimer: ReturnType<typeof setTimeout> | undefined;
+    if (exiting.length > 0) {
+      exitTimer = setTimeout(() => {
+        setNodes((current) => current.filter((n) => n.className !== "rf-node-exit"));
+      }, 360);
+    }
+
     // Only fit view on first render, not on every update
     if (isFirstRender && initialNodes.length > 0) {
       setIsFirstRender(false);
     }
+
+    return () => {
+      if (enterTimer) clearTimeout(enterTimer);
+      if (exitTimer) clearTimeout(exitTimer);
+    };
   }, [initialNodes, initialEdges, setNodes, setEdges, isFirstRender]);
 
   const onNodeClick = useCallback(

@@ -113,7 +113,7 @@ export function DiffView({ name, variant = "page" }: { name: string; variant?: "
                 <span className="font-medium truncate">
                   {r.kind}/{r.name}
                 </span>
-                <SyncBadge status={r.sync} />
+                <SyncBadge status={r.sync} size="sm" />
               </div>
               <div className="text-xs text-[var(--color-text-muted)]">{r.namespace}</div>
             </button>
@@ -137,7 +137,7 @@ function StackedDiffBlock({ r, hideManaged, inlineDiff }: { r: ResourceDiff; hid
           {r.kind} / {r.name}
           {r.namespace && <span className="text-[var(--color-text-muted)] ml-2">{r.namespace}</span>}
         </span>
-        <SyncBadge status={r.sync} />
+        <SyncBadge status={r.sync} size="sm" />
       </div>
       <div className="h-[min(360px,40vh)] min-h-[200px]">
         <DiffEditor

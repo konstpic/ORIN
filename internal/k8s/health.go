@@ -62,6 +62,9 @@ func Aggregate(per []domain.HealthStatus) domain.HealthStatus {
 }
 
 func deploymentHealth(o *unstructured.Unstructured) domain.HealthStatus {
+	if deploymentConditionDegraded(o) {
+		return domain.HealthDegraded
+	}
 	desired, _, _ := unstructured.NestedInt64(o.Object, "spec", "replicas")
 	avail, _, _ := unstructured.NestedInt64(o.Object, "status", "availableReplicas")
 	updated, _, _ := unstructured.NestedInt64(o.Object, "status", "updatedReplicas")
@@ -73,10 +76,35 @@ func deploymentHealth(o *unstructured.Unstructured) domain.HealthStatus {
 	if updated < desired {
 		return domain.HealthProgressing
 	}
+	// Rollout spec satisfied but readiness still catching up (scale/roll) — not degraded.
 	if avail < desired {
-		return domain.HealthDegraded
+		return domain.HealthProgressing
 	}
 	return domain.HealthHealthy
+}
+
+// deploymentConditionDegraded mirrors Argo CD: deadline exceeded or replica failure.
+func deploymentConditionDegraded(o *unstructured.Unstructured) bool {
+	conds, found, _ := unstructured.NestedSlice(o.Object, "status", "conditions")
+	if !found {
+		return false
+	}
+	for _, c := range conds {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		typ, _, _ := unstructured.NestedString(cm, "type")
+		status, _, _ := unstructured.NestedString(cm, "status")
+		reason, _, _ := unstructured.NestedString(cm, "reason")
+		if typ == "Progressing" && status == "False" && reason == "ProgressDeadlineExceeded" {
+			return true
+		}
+		if typ == "ReplicaFailure" && status == "True" {
+			return true
+		}
+	}
+	return false
 }
 
 func replicaSetHealth(o *unstructured.Unstructured) domain.HealthStatus {
