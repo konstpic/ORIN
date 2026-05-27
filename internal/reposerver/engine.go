@@ -63,6 +63,11 @@ type RenderOpts struct {
 	HelmValueFiles []string
 	HelmValuesJSON string
 	Credentials    *domain.RepoCreds
+	// Plugin, when non-nil, overrides auto-detected rendering (Helm/Kustomize/plain)
+	// with a CMP-style external command executed in the checkout directory.
+	Plugin *domain.Plugin
+	// PluginEnv carries per-application env overrides merged on top of Plugin.Env.
+	PluginEnv []domain.EnvVar
 }
 
 // Render resolves the target revision and renders manifests.
@@ -183,6 +188,7 @@ func (e *Engine) renderSHA(ctx context.Context, bareDir, sha string, opts Render
 		DestNamespace:  opts.DestNamespace,
 		HelmValueFiles: opts.HelmValueFiles,
 		HelmValuesJSON: []byte(opts.HelmValuesJSON),
+		Plugin:         buildPluginConfig(opts.Plugin, opts.PluginEnv, opts.AppName, opts.DestNamespace),
 	})
 	if err != nil {
 		return nil, err
@@ -203,4 +209,32 @@ func cloneObjs(in []*unstructured.Unstructured) []*unstructured.Unstructured {
 		out = append(out, o.DeepCopy())
 	}
 	return out
+}
+
+// buildPluginConfig converts domain plugin types to the manifest-package types,
+// merging the plugin's base env with per-application overrides (right-wins).
+// Returns nil when plugin is nil (no plugin configured → auto-detect renderer).
+func buildPluginConfig(plugin *domain.Plugin, appEnv []domain.EnvVar, appName, namespace string) *manifest.PluginConfig {
+	if plugin == nil {
+		return nil
+	}
+	// Build merged env: base plugin env first, then per-app overrides.
+	merged := make(map[string]string, len(plugin.Env)+len(appEnv))
+	for _, e := range plugin.Env {
+		merged[e.Name] = e.Value
+	}
+	for _, e := range appEnv {
+		merged[e.Name] = e.Value
+	}
+	env := make([]manifest.PluginEnvVar, 0, len(merged))
+	for k, v := range merged {
+		env = append(env, manifest.PluginEnvVar{Name: k, Value: v})
+	}
+	return &manifest.PluginConfig{
+		Command:   plugin.Generate.Command,
+		Args:      plugin.Generate.Args,
+		Env:       env,
+		AppName:   appName,
+		Namespace: namespace,
+	}
 }

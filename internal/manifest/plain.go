@@ -33,7 +33,13 @@ func chartDir(dir string) (string, bool) {
 
 // Detect returns the renderer appropriate for the directory.
 // Helm and Kustomize require the respective CLIs on PATH.
+//
+// When ctx.Plugin is non-nil the PluginRenderer is returned unconditionally,
+// bypassing all filesystem detection heuristics.
 func Detect(dir string, ctx RenderContext) (Renderer, error) {
+	if ctx.Plugin != nil {
+		return &PluginRenderer{Config: *ctx.Plugin}, nil
+	}
 	if _, ok := chartDir(dir); ok {
 		return &Helm{
 			ReleaseName:     sanitizeHelmRelease(ctx.AppName),

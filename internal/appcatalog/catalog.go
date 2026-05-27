@@ -35,6 +35,12 @@ type EntryIgnoreDifferenceRule struct {
 	JSONPointers []string `yaml:"jsonPointers,omitempty"`
 }
 
+// EntryPluginEnvVar mirrors domain.EnvVar in YAML catalog form.
+type EntryPluginEnvVar struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
 // Entry is one application row (catalog file or embedded ConfigMap data).
 type Entry struct {
 	Name    string `yaml:"name"`
@@ -47,6 +53,13 @@ type Entry struct {
 		// HelmValueFiles are paths relative to the chart directory in the Git
 		// checkout that are passed as extra -f layers to helm template.
 		HelmValueFiles []string `yaml:"helmValueFiles,omitempty"`
+		// Plugin specifies a registered config management plugin by name.
+		// When set, the plugin's generate command is used instead of
+		// auto-detecting Helm / Kustomize / plain-YAML.
+		Plugin *struct {
+			Name string             `yaml:"name"`
+			Env  []EntryPluginEnvVar `yaml:"env,omitempty"`
+		} `yaml:"plugin,omitempty"`
 	} `yaml:"source"`
 	Destination struct {
 		Cluster   string `yaml:"cluster"`
@@ -176,6 +189,12 @@ func DomainFromEntry(ctx context.Context, st *store.Store, e Entry) (*domain.App
 	if len(hv) > 0 {
 		app.HelmValuesJSON = hv
 	}
+	if p := e.Source.Plugin; p != nil {
+		app.PluginName = p.Name
+		for _, ev := range p.Env {
+			app.PluginEnv = append(app.PluginEnv, domain.EnvVar{Name: ev.Name, Value: ev.Value})
+		}
+	}
 	return app, nil
 }
 
@@ -197,6 +216,17 @@ func NeedsDBUpdate(cur, want *domain.Application) bool {
 	}
 	if !syncPolicyEqual(cur.SyncPolicy, want.SyncPolicy) {
 		return true
+	}
+	if cur.PluginName != want.PluginName {
+		return true
+	}
+	if len(cur.PluginEnv) != len(want.PluginEnv) {
+		return true
+	}
+	for i := range cur.PluginEnv {
+		if cur.PluginEnv[i] != want.PluginEnv[i] {
+			return true
+		}
 	}
 	return false
 }

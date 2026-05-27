@@ -29,6 +29,38 @@ const (
 	HealthMissing     HealthStatus = "Missing"
 )
 
+// EnvVar is a name/value pair injected into a plugin's execution environment.
+type EnvVar struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
+// PluginGenerateSpec describes the shell command that generates manifests.
+// The command is executed inside the checked-out repository path and must
+// write valid YAML/JSON Kubernetes manifests to stdout.
+type PluginGenerateSpec struct {
+	// Command is the executable (e.g. "sh", "vault", "helmfile").
+	Command string `json:"command"`
+	// Args are the command-line arguments (e.g. ["-c", "helm template ."]).
+	Args []string `json:"args,omitempty"`
+}
+
+// Plugin is a globally-registered manifest generator.  It mirrors the concept
+// of an Argo CD Config Management Plugin: a named shell command that runs in
+// the repo checkout directory and writes rendered manifests to stdout.
+//
+// Per-application env overrides are stored on Application.PluginEnv and are
+// merged (right-wins) with the plugin's base Env at render time.
+type Plugin struct {
+	ID       string             `json:"id"`
+	Name     string             `json:"name"`
+	Generate PluginGenerateSpec `json:"generate"`
+	// Env is the base set of env vars always passed to the generator.
+	Env       []EnvVar  `json:"env,omitempty"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 // RepositoryType narrows manifest renderer selection (MVP supports plain only).
 type RepositoryType string
 
@@ -158,7 +190,14 @@ type Application struct {
 	SyncPolicy     SyncPolicy `json:"syncPolicy"`
 	// ParentApp is the name of the parent Application that declared this app
 	// as a child (App of Apps pattern). Empty string means a top-level app.
-	ParentApp string    `json:"parentApp,omitempty"`
+	ParentApp string `json:"parentApp,omitempty"`
+	// PluginName references a globally-registered Plugin by name.  When set,
+	// the named plugin's generate command is used instead of auto-detecting
+	// Helm / Kustomize / plain-YAML.
+	PluginName string `json:"pluginName,omitempty"`
+	// PluginEnv carries per-application env var overrides that are merged
+	// (right-wins) with the plugin's base Env at render time.
+	PluginEnv []EnvVar  `json:"pluginEnv,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }

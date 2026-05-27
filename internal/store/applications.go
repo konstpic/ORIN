@@ -33,6 +33,10 @@ func (a *Applications) Create(ctx context.Context, app *domain.Application) erro
 	if err != nil {
 		return err
 	}
+	pluginEnv, err := nullableEnvSliceJSON(app.PluginEnv)
+	if err != nil {
+		return err
+	}
 	tx, err := a.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -41,12 +45,15 @@ func (a *Applications) Create(ctx context.Context, app *domain.Application) erro
 	_, err = tx.Exec(ctx, `
 		INSERT INTO applications (id, name, project, repo_id, path, target_revision,
 		                          dest_cluster_id, dest_namespace, sync_policy_json,
-		                          helm_values_json, helm_value_files_json, parent_app, created_at, updated_at)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+		                          helm_values_json, helm_value_files_json, parent_app,
+		                          plugin_name, plugin_env_json,
+		                          created_at, updated_at)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
 		app.ID, app.Name, app.Project, app.RepoID, app.Path, app.TargetRevision,
 		app.DestClusterID, app.DestNamespace, policy,
 		nullableHelmValuesJSON(app.HelmValuesJSON), hvFiles,
 		app.ParentApp,
+		app.PluginName, pluginEnv,
 		app.CreatedAt, app.UpdatedAt,
 	)
 	if err != nil {
@@ -70,17 +77,21 @@ func (a *Applications) Update(ctx context.Context, app *domain.Application) erro
 	if err != nil {
 		return err
 	}
+	pluginEnv, err := nullableEnvSliceJSON(app.PluginEnv)
+	if err != nil {
+		return err
+	}
 	tag, err := a.pool.Exec(ctx, `
 		UPDATE applications SET
 		  repo_id=$2, path=$3, target_revision=$4,
 		  dest_cluster_id=$5, dest_namespace=$6, sync_policy_json=$7,
 		  helm_values_json=$8, helm_value_files_json=$9,
-		  parent_app=$10, updated_at=$11
+		  parent_app=$10, plugin_name=$11, plugin_env_json=$12, updated_at=$13
 		WHERE id=$1`,
 		app.ID, app.RepoID, app.Path, app.TargetRevision,
 		app.DestClusterID, app.DestNamespace, policy,
 		nullableHelmValuesJSON(app.HelmValuesJSON), hvFiles,
-		app.ParentApp, app.UpdatedAt,
+		app.ParentApp, app.PluginName, pluginEnv, app.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -168,7 +179,8 @@ func (a *Applications) ListByRepoRevision(ctx context.Context, repoID, revision 
 }
 
 const baseAppSelect = `SELECT id, name, project, repo_id, path, target_revision,
-		dest_cluster_id, dest_namespace, sync_policy_json, helm_values_json, helm_value_files_json, parent_app, created_at, updated_at
+		dest_cluster_id, dest_namespace, sync_policy_json, helm_values_json, helm_value_files_json,
+		parent_app, plugin_name, plugin_env_json, created_at, updated_at
 	FROM applications`
 
 func (a *Applications) queryOne(ctx context.Context, where string, args ...any) (*domain.Application, error) {
@@ -189,10 +201,13 @@ func scanApp(s scanner) (*domain.Application, error) {
 	var policy []byte
 	var helm []byte
 	var helmFiles []byte
+	var pluginEnv []byte
 	if err := s.Scan(
 		&app.ID, &app.Name, &app.Project, &app.RepoID, &app.Path,
 		&app.TargetRevision, &app.DestClusterID, &app.DestNamespace,
-		&policy, &helm, &helmFiles, &app.ParentApp, &app.CreatedAt, &app.UpdatedAt,
+		&policy, &helm, &helmFiles,
+		&app.ParentApp, &app.PluginName, &pluginEnv,
+		&app.CreatedAt, &app.UpdatedAt,
 	); err != nil {
 		return nil, err
 	}
@@ -205,6 +220,11 @@ func scanApp(s scanner) (*domain.Application, error) {
 	if len(helmFiles) > 0 {
 		if err := json.Unmarshal(helmFiles, &app.HelmValueFiles); err != nil {
 			return nil, fmt.Errorf("unmarshal helm_value_files_json: %w", err)
+		}
+	}
+	if len(pluginEnv) > 0 {
+		if err := json.Unmarshal(pluginEnv, &app.PluginEnv); err != nil {
+			return nil, fmt.Errorf("unmarshal plugin_env_json: %w", err)
 		}
 	}
 	return &app, nil
@@ -230,4 +250,15 @@ func nullableHelmValuesJSON(b []byte) any {
 		return nil
 	}
 	return b
+}
+
+func nullableEnvSliceJSON(env []domain.EnvVar) (any, error) {
+	if len(env) == 0 {
+		return nil, nil
+	}
+	b, err := json.Marshal(env)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
 }

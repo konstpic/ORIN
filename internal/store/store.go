@@ -25,19 +25,20 @@ var ErrNotFound = errors.New("not found")
 
 // Store wraps a pgx pool plus the typed repositories.
 type Store struct {
-	Pool           *pgxpool.Pool
-	Applications   *Applications
-	Repositories   *Repositories
-	Clusters       *Clusters
-	Projects       *Projects
-	Sync           *SyncOperations
-	Status         *Statuses
-	Audit          *Auditor
-	Notifications  *NotificationStore
-	SyncHooks      *SyncHookStore
-	Roles          *RoleStore
-	RoleBindings   *RoleBindingStore
-	SystemConfig   *SystemConfigStore
+	Pool          *pgxpool.Pool
+	Applications  *Applications
+	Repositories  *Repositories
+	Clusters      *Clusters
+	Projects      *Projects
+	Sync          *SyncOperations
+	Status        *Statuses
+	Audit         *Auditor
+	Notifications *NotificationStore
+	SyncHooks     *SyncHookStore
+	Roles         *RoleStore
+	RoleBindings  *RoleBindingStore
+	SystemConfig  *SystemConfigStore
+	Plugins       *Plugins
 }
 
 // Connect opens a pool and constructs the typed repositories.
@@ -63,6 +64,7 @@ func Connect(ctx context.Context, url string) (*Store, error) {
 		Roles:         NewRoleStore(pool),
 		RoleBindings:  NewRoleBindingStore(pool),
 		SystemConfig:  NewSystemConfigStore(pool),
+		Plugins:       NewPlugins(pool),
 	}, nil
 }
 

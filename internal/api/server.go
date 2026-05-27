@@ -168,6 +168,13 @@ func (s *Server) Handler() http.Handler {
 		// System configuration
 		r.Get("/api/v1/system/config", s.getSystemConfig)
 		r.Put("/api/v1/system/config", s.updateSystemConfig)
+
+		// Config management plugins (CMP)
+		r.Get("/api/v1/plugins", s.listPlugins)
+		r.Post("/api/v1/plugins", s.createPlugin)
+		r.Get("/api/v1/plugins/{id}", s.getPlugin)
+		r.Put("/api/v1/plugins/{id}", s.updatePlugin)
+		r.Delete("/api/v1/plugins/{id}", s.deletePlugin)
 	})
 
 	// Static frontend assets (optional) - SPA fallback to index.html

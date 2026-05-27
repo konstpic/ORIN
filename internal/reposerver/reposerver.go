@@ -88,7 +88,11 @@ func (s *Server) RenderForApp(ctx context.Context, app *domain.Application) (*Re
 	if err != nil {
 		return nil, err
 	}
-	return s.backend().Render(ctx, renderOpts(repo, app))
+	opts, err := s.buildRenderOpts(ctx, repo, app)
+	if err != nil {
+		return nil, err
+	}
+	return s.backend().Render(ctx, opts)
 }
 
 // RenderForAppSHA renders manifests at an explicit commit SHA.
@@ -97,7 +101,11 @@ func (s *Server) RenderForAppSHA(ctx context.Context, app *domain.Application, s
 	if err != nil {
 		return nil, err
 	}
-	return s.backend().RenderSHA(ctx, renderOpts(repo, app), sha)
+	opts, err := s.buildRenderOpts(ctx, repo, app)
+	if err != nil {
+		return nil, err
+	}
+	return s.backend().RenderSHA(ctx, opts, sha)
 }
 
 // ListCommitsForApp returns recent commits optionally scoped to app.Path.
@@ -165,8 +173,11 @@ func (s *Server) ReadRawFile(ctx context.Context, repoURL, revision, relPath str
 // CacheAge is for tests/diagnostics.
 func (s *Server) CacheAge() time.Duration { return 0 }
 
-func renderOpts(repo *domain.Repository, app *domain.Application) RenderOpts {
-	return RenderOpts{
+// buildRenderOpts assembles RenderOpts for app, loading a registered plugin
+// when app.PluginName is set. Plugin lookup failures are non-fatal: rendering
+// falls back to auto-detection so that a typo doesn't brick an application.
+func (s *Server) buildRenderOpts(ctx context.Context, repo *domain.Repository, app *domain.Application) (RenderOpts, error) {
+	opts := RenderOpts{
 		RepoURL:        repo.URL,
 		TargetRevision: app.TargetRevision,
 		Path:           app.Path,
@@ -175,5 +186,14 @@ func renderOpts(repo *domain.Repository, app *domain.Application) RenderOpts {
 		HelmValueFiles: app.HelmValueFiles,
 		HelmValuesJSON: string(app.HelmValuesJSON),
 		Credentials:    repo.Credentials,
+		PluginEnv:      app.PluginEnv,
 	}
+	if app.PluginName != "" && s.store != nil && s.store.Plugins != nil {
+		plugin, err := s.store.Plugins.GetByName(ctx, app.PluginName)
+		if err == nil {
+			opts.Plugin = plugin
+		}
+		// Non-fatal: if the plugin is missing we log and fall back to auto-detect.
+	}
+	return opts, nil
 }
