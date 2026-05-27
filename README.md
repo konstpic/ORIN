@@ -215,6 +215,118 @@ the JSON `template` is merged into each `items[]` row; each item may override
 `repoUrl`, `path`, `targetRevision`, `cluster`, `namespace` (`destNamespace`),
 `project`, and `helmValues`.
 
+## Config Management Plugins (CMP)
+
+ORIN supports **custom manifest generators** modelled on Argo CD's Config
+Management Plugin concept. A plugin is a shell command registered globally
+that runs inside the checked-out repository directory and writes rendered
+Kubernetes YAML to stdout. This lets you integrate any tool that produces
+manifests — Vault templating, `vals`, Helmfile, Jsonnet, KSOPS, etc.
+
+### How it works
+
+1. Register a plugin (once, globally).
+2. Point an Application at the plugin by name, with optional per-app env overrides.
+3. On every render the plugin command runs in the checkout directory; ORIN
+   reads its stdout as a YAML stream, exactly like Helm or plain YAML.
+
+The following env vars are **always** injected:
+
+| Variable | Value |
+|----------|-------|
+| `ORIN_APP_NAME` | Application name |
+| `ORIN_APP_NAMESPACE` | Destination namespace |
+| `ORIN_ENV_<NAME>` | Each entry from the plugin/app `env` list (upper-cased) |
+
+### Register a plugin
+
+```bash
+POST /api/v1/plugins
+{
+  "name": "vals",
+  "generate": {
+    "command": "sh",
+    "args": ["-c", "helm template . | vals eval -f -"]
+  },
+  "env": [
+    { "name": "VAULT_ADDR", "value": "http://vault.vault.svc:8200" }
+  ]
+}
+```
+
+Other operations: `GET /api/v1/plugins`, `GET /api/v1/plugins/{id}`,
+`PUT /api/v1/plugins/{id}`, `DELETE /api/v1/plugins/{id}`.
+
+### Wire an Application to a plugin
+
+Via the API:
+
+```bash
+PUT /api/v1/applications/my-app
+{
+  "source": { "repoUrl": "...", "path": "charts/my-app", "targetRevision": "main" },
+  "destination": { "cluster": "in-cluster", "namespace": "my-app" },
+  "pluginName": "vals",
+  "pluginEnv": [
+    { "name": "VAULT_TOKEN", "value": "s.xxxxx" }
+  ]
+}
+```
+
+Via the **app catalog** YAML:
+
+```yaml
+applications:
+  - name: my-app
+    source:
+      repoUrl: https://github.com/org/repo
+      path: charts/my-app
+      plugin:
+        name: vals
+        env:
+          - name: VAULT_TOKEN
+            value: "ref+vault://secret/data/tokens#token"
+    destination:
+      cluster: in-cluster
+      namespace: my-app
+```
+
+### Vault example — `vals`
+
+[`vals`](https://github.com/helmfile/vals) resolves `ref+vault://...` URIs
+in YAML before passing the result to the cluster.
+
+```bash
+# 1. Install vals in the reposerver container / PATH
+# 2. Register the plugin
+POST /api/v1/plugins
+{
+  "name": "vals",
+  "generate": { "command": "sh", "args": ["-c", "helm template . | vals eval -f -"] },
+  "env": [
+    { "name": "VAULT_ADDR",       "value": "http://vault.vault.svc:8200" },
+    { "name": "VAULT_AUTH_METHOD","value": "kubernetes" },
+    { "name": "VAULT_ROLE",       "value": "orin-reposerver" }
+  ]
+}
+
+# 3. In values.yaml reference secrets as vals URIs
+# db_password: ref+vault://secret/data/my-app#password
+```
+
+### Other plugin examples
+
+| Tool | `generate.command` | `generate.args` |
+|------|--------------------|-----------------|
+| Helmfile | `helmfile` | `["template"]` |
+| Kustomize + KSOPS | `sh` | `["-c", "kustomize build --enable-alpha-plugins ."]` |
+| Jsonnet | `sh` | `["-c", "jsonnet -J vendor main.jsonnet"]` |
+| Envsubst | `sh` | `["-c", "envsubst < deployment.yaml"]` |
+
+> **Note:** the plugin binary must be present in the **reposerver** container
+> (or on PATH when running all-in-one). Add it to the `Dockerfile.reposerver`
+> image as needed.
+
 ## Docker Desktop Kubernetes
 
 To run the whole stack (Postgres + API + embedded UI) inside Docker Desktop’s
