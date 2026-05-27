@@ -36,16 +36,39 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  // Fetch has no default timeout; if the backend/ingress hangs the connection,
+  // react-query will keep showing the initial loading state indefinitely.
+  const timeoutMs = 30_000;
+  const ctrl = new AbortController();
+  const timeout = window.setTimeout(() => ctrl.abort(), timeoutMs);
   const extraHeaders = init.headers as Record<string, string> | undefined;
   const contentType = extraHeaders?.["Content-Type"] ?? "application/json";
-  const res = await fetch(path, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": contentType,
-      ...(init.headers ?? {}),
-    },
-  });
+  // We keep an auth cookie for server-side convenience, but for local/dev and
+  // for cases where the UI is opened via a different host/IP, also attach the
+  // token from localStorage as a Bearer header (backend accepts it).
+  const storedToken =
+    typeof window !== "undefined" ? window.localStorage.getItem("k8sui-token") : null;
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      ...init,
+      signal: init.signal ?? ctrl.signal,
+      credentials: "include",
+      headers: {
+        "Content-Type": contentType,
+        ...(storedToken ? { Authorization: `Bearer ${storedToken}` } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    // Normalize timeouts / aborts into ApiError so UI can render a message.
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(0, "timeout", `Request timed out after ${Math.round(timeoutMs / 1000)}s`);
+    }
+    throw e;
+  } finally {
+    window.clearTimeout(timeout);
+  }
   if (!res.ok) {
     let code = res.statusText;
     let msg = "";
