@@ -166,8 +166,7 @@ func (cm *ClusterManager) DetectPodShell(
 
 	for _, shell := range shells {
 		cmd := []string{"test", "-x", shell}
-		var stdout, stderr io.Writer
-		err := cm.PodExecStream(ctx, namespace, podName, container, cmd, nil, stdout, stderr, false, 0, 0)
+		err := cm.PodExecStream(ctx, namespace, podName, container, cmd, nil, io.Discard, io.Discard, false, nil)
 		if err == nil {
 			return shell
 		}
@@ -177,16 +176,54 @@ func (cm *ClusterManager) DetectPodShell(
 	return "/bin/sh"
 }
 
-// staticTTYResize implements remotecommand.TerminalSizeQueue with a fixed size (MVP).
-type staticTTYResize struct {
-	w, h uint16
+// DynamicTTYResize implements remotecommand.TerminalSizeQueue with live resize
+// support. Send new sizes via Resize(); call Close() when the session ends.
+type DynamicTTYResize struct {
+	ch chan remotecommand.TerminalSize
 }
 
-func (s *staticTTYResize) Next() *remotecommand.TerminalSize {
-	return &remotecommand.TerminalSize{Width: s.w, Height: s.h}
+// NewDynamicTTYResize creates a DynamicTTYResize and seeds it with the initial
+// terminal size so the first Next() call returns immediately.
+func NewDynamicTTYResize(w, h uint16) *DynamicTTYResize {
+	d := &DynamicTTYResize{ch: make(chan remotecommand.TerminalSize, 8)}
+	d.ch <- remotecommand.TerminalSize{Width: w, Height: h}
+	return d
 }
 
-// PodExecStream runs kubectl-style exec until the context is cancelled or the process exits.
+// Next blocks until a new size arrives or the channel is closed.
+// Returning nil signals the end of the stream to the SPDY executor.
+func (d *DynamicTTYResize) Next() *remotecommand.TerminalSize {
+	size, ok := <-d.ch
+	if !ok {
+		return nil
+	}
+	return &size
+}
+
+// Resize enqueues a new terminal dimension. Non-blocking: drops if buffer full.
+func (d *DynamicTTYResize) Resize(w, h uint16) {
+	select {
+	case d.ch <- remotecommand.TerminalSize{Width: w, Height: h}:
+	default:
+	}
+}
+
+// Close drains and closes the channel, causing any pending Next() to return nil.
+func (d *DynamicTTYResize) Close() {
+	// Drain first so the executor goroutine never blocks on a full channel.
+	for {
+		select {
+		case <-d.ch:
+		default:
+			close(d.ch)
+			return
+		}
+	}
+}
+
+// PodExecStream runs kubectl-style exec until the context is cancelled or the
+// process exits. Pass a non-nil sizeQueue for TTY sessions with dynamic resize;
+// pass nil for non-TTY command execution.
 func (cm *ClusterManager) PodExecStream(
 	ctx context.Context,
 	namespace, podName, container string,
@@ -194,16 +231,10 @@ func (cm *ClusterManager) PodExecStream(
 	stdin io.Reader,
 	stdout, stderr io.Writer,
 	tty bool,
-	termWidth, termHeight int,
+	sizeQueue remotecommand.TerminalSizeQueue,
 ) error {
 	if len(command) == 0 {
 		command = []string{"/bin/sh"}
-	}
-	if termWidth <= 0 {
-		termWidth = 120
-	}
-	if termHeight <= 0 {
-		termHeight = 40
 	}
 	req := cm.clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
@@ -224,13 +255,11 @@ func (cm *ClusterManager) PodExecStream(
 		return err
 	}
 	opts := remotecommand.StreamOptions{
-		Stdin:  stdin,
-		Stdout: stdout,
-		Stderr: stderr,
-		Tty:    tty,
-	}
-	if tty {
-		opts.TerminalSizeQueue = &staticTTYResize{w: uint16(termWidth), h: uint16(termHeight)}
+		Stdin:             stdin,
+		Stdout:            stdout,
+		Stderr:            stderr,
+		Tty:               tty,
+		TerminalSizeQueue: sizeQueue,
 	}
 	return exec.StreamWithContext(ctx, opts)
 }

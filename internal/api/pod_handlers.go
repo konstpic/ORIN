@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -330,9 +331,25 @@ func (s *Server) getApplicationPodShell(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, map[string]string{"shell": shell})
 }
 
-// appPodExecWS streams pod exec over WebSocket.
-// Client → server: TextMessage JSON {"resize":{"w":120,"h":40}} or BinaryMessage = raw stdin bytes.
-// Server → client: BinaryMessage [0x01|0x02][payload] for stdout|stderr.
+// resizeMsg is the JSON shape sent by the frontend for terminal resize events.
+type resizeMsg struct {
+	Resize *struct {
+		W uint16 `json:"w"`
+		H uint16 `json:"h"`
+	} `json:"resize"`
+}
+
+// appPodExecWS streams pod exec over WebSocket with full dynamic resize support.
+//
+// Protocol (client → server):
+//   - BinaryMessage: raw stdin bytes forwarded to the container.
+//   - TextMessage JSON {"resize":{"w":N,"h":N}}: terminal resize — applied live.
+//   - TextMessage JSON {"ping":true}: keepalive, no response needed.
+//
+// Protocol (server → client):
+//   - BinaryMessage [0x01][payload]: stdout chunk.
+//   - BinaryMessage [0x02][payload]: stderr chunk.
+//   - TextMessage JSON {"error":"..."}: exec error.
 func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 	if !rbacenforce.CheckPermission(w, r, rbac.PermPodExec) {
 		return
@@ -375,13 +392,15 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 		command = []string{"/bin/sh"}
 	}
 
+	// Seed initial TTY dimensions from query params; the client sends a resize
+	// message immediately after the WebSocket opens to confirm the real size.
 	tw, _ := strconv.Atoi(r.URL.Query().Get("w"))
 	th, _ := strconv.Atoi(r.URL.Query().Get("h"))
 	if tw <= 0 {
-		tw = 120
+		tw = 220
 	}
 	if th <= 0 {
-		th = 40
+		th = 50
 	}
 
 	conn, err := upgrader.Upgrade(w, r, nil)
@@ -389,6 +408,14 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.Close()
+
+	// Enable WebSocket ping/pong so idle connections survive proxy timeouts.
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
+	})
+
+	resizer := k8s.NewDynamicTTYResize(uint16(tw), uint16(th))
+	defer resizer.Close()
 
 	stdinR, stdinW := io.Pipe()
 	var mu sync.Mutex
@@ -408,21 +435,50 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 
+	// Ping loop — keeps the WebSocket alive through proxies / load balancers.
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				mu.Lock()
+				_ = conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				err := conn.WriteMessage(websocket.PingMessage, nil)
+				mu.Unlock()
+				if err != nil {
+					cancel()
+					return
+				}
+			}
+		}
+	}()
+
+	// Read loop: stdin bytes + resize/ping JSON text messages.
 	go func() {
 		defer stdinW.Close()
 		for {
-			_ = conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+			_ = conn.SetReadDeadline(time.Now().Add(5 * time.Minute))
 			mt, data, err := conn.ReadMessage()
 			if err != nil {
 				cancel()
 				return
 			}
-			if mt == websocket.TextMessage {
-				// optional resize — ignored in MVP static TTY; reserved for future
-				continue
-			}
-			if mt == websocket.BinaryMessage && len(data) > 0 {
-				_, _ = stdinW.Write(data)
+			switch mt {
+			case websocket.TextMessage:
+				var msg resizeMsg
+				if json.Unmarshal(data, &msg) == nil && msg.Resize != nil {
+					w, h := msg.Resize.W, msg.Resize.H
+					if w > 0 && h > 0 {
+						resizer.Resize(w, h)
+					}
+				}
+			case websocket.BinaryMessage:
+				if len(data) > 0 {
+					_, _ = stdinW.Write(data)
+				}
 			}
 		}
 	}()
@@ -431,7 +487,7 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 	stderrR, stderrW := io.Pipe()
 
 	go func() {
-		buf := make([]byte, 16*1024)
+		buf := make([]byte, 16 * 1024)
 		for {
 			n, err := stdoutR.Read(buf)
 			if n > 0 {
@@ -443,7 +499,7 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 	go func() {
-		buf := make([]byte, 8*1024)
+		buf := make([]byte, 8 * 1024)
 		for {
 			n, err := stderrR.Read(buf)
 			if n > 0 {
@@ -455,7 +511,7 @@ func (s *Server) appPodExecWS(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
-	err = s.opts.Cluster.PodExecStream(ctx, app.DestNamespace, podName, container, command, stdinR, stdoutW, stderrW, true, tw, th)
+	err = s.opts.Cluster.PodExecStream(ctx, app.DestNamespace, podName, container, command, stdinR, stdoutW, stderrW, true, resizer)
 	_ = stdoutW.Close()
 	_ = stderrW.Close()
 	if err != nil && ctx.Err() == nil {

@@ -207,10 +207,21 @@ export function PodDrawer({
     term.open(termHostRef.current);
     try { fit.fit(); } catch { /* host may not be sized yet */ }
 
+    // Helper: re-fit the terminal and notify the backend of the new size.
+    const sendResize = (ws: WebSocket) => {
+      try { fit.fit(); } catch { /* ignore */ }
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ resize: { w: term.cols, h: term.rows } }));
+      }
+    };
+
     const proto = location.protocol === "https:" ? "wss" : "ws";
     const qs = new URLSearchParams();
     qs.set("container", container);
     qs.set("command", shell);
+    // Pass the current terminal dimensions as initial seed for the backend TTY.
+    qs.set("w", String(term.cols || 220));
+    qs.set("h", String(term.rows || 50));
     if (token) qs.set("token", token);
     const url = `${proto}://${location.host}/api/v1/applications/${encodeURIComponent(appName)}/pods/${encodeURIComponent(pod)}/exec?${qs}`;
     const ws = new WebSocket(url);
@@ -219,7 +230,9 @@ export function PodDrawer({
     ws.onopen = () => {
       setTermConnecting(false);
       term.reset();
-      term.writeln(`\x1b[36mConnected\x1b[0m — ${shell}.  (Ctrl+D to exit on the pod side)\r\n`);
+      // Immediately confirm the real terminal size to the backend.
+      sendResize(ws);
+      term.writeln(`\x1b[36mConnected\x1b[0m — ${shell}.  (Ctrl+D to exit)\r\n`);
     };
 
     ws.onclose = (ev) => {
@@ -263,7 +276,8 @@ export function PodDrawer({
 
     const el = termHostRef.current;
     const ro = new ResizeObserver(() => {
-      try { fit.fit(); } catch { /* ignore */ }
+      // Re-fit xterm and notify the backend so the PTY cols/rows stay in sync.
+      sendResize(ws);
     });
     ro.observe(el);
 
