@@ -3,7 +3,7 @@
 
 global:
   image:
-    tag: "0.2.4"
+    tag: "0.2.5"
     pullPolicy: IfNotPresent
 
   images:
