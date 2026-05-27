@@ -1,6 +1,6 @@
-# ORIN — GitOps Navigation System for Kubernetes
+# ORIN — Observable Reconciliation & Infrastructure Navigation
 
-`ORIN` is a GitOps platform written in Go (backend) and
+**ORIN** *(Observable Reconciliation & Infrastructure Navigation)* is a GitOps platform written in Go (backend) and
 React + TypeScript (frontend). Each *Application* declares a Git source (repo +
 path + revision) and a destination (cluster + namespace). The system
 continuously reconciles desired state (Git) with actual state (Kubernetes) and
